@@ -1,1 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PokéFrame — Send to Display</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c28;
+    --border: #2a2a3d;
+    --accent: #ffcb05;
+    --accent2: #3b5bdb;
+    --text: #f0f0f5;
+    --muted: #6b6b8a;
+    --success: #40c057;
+    --error: #fa5252;
+    --radius: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 48px;
+    background-image:
+      radial-gradient(ellipse 80% 40% at 50% -10%, rgba(59,91,219,0.18) 0%, transparent 70%),
+      url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.015'%3E%3Crect x='0' y='0' width='1' height='1'/%3E%3Crect x='20' y='20' width='1' height='1'/%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  /* ── Header ── */
+  header {
+    text-align: center;
+    margin-bottom: 36px;
+    animation: fadeDown 0.6s ease both;
+  }
+
+  .logo {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(16px, 5vw, 22px);
+    color: var(--accent);
+    text-shadow: 0 0 30px rgba(255,203,5,0.4), 3px 3px 0 rgba(0,0,0,0.5);
+    letter-spacing: 1px;
+    line-height: 1.4;
+  }
+
+  .tagline {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 300;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── Card ── */
+  .card {
+    width: 100%;
+    max-width: 420px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px 24px;
+    animation: fadeUp 0.5s ease both;
+    animation-delay: 0.1s;
+  }
+
+  /* ── Steps ── */
+  .step {
+    margin-bottom: 24px;
+  }
+
+  .step-label {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .step-num {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: var(--accent2);
+    color: #fff;
+    font-size: 7px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* ── Search input ── */
+  .search-wrap {
+    position: relative;
+  }
+
+  .search-wrap input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    padding: 13px 16px 13px 42px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    appearance: none;
+  }
+
+  .search-wrap input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(255,203,5,0.12);
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 14px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    pointer-events: none;
+    font-size: 16px;
+  }
+
+  /* ── Dropdown ── */
+  select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    padding: 13px 16px;
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 7L11 1' stroke='%236b6b8a' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(255,203,5,0.12);
+  }
+
+  select:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  select option {
+    background: var(--surface2);
+    color: var(--text);
+  }
+
+  /* ── Autocomplete dropdown ── */
+  .autocomplete-list {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0; right: 0;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 100;
+    display: none;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .autocomplete-list.open { display: block; }
+
+  .autocomplete-item {
+    padding: 11px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.12s;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .autocomplete-item:last-child { border-bottom: none; }
+  .autocomplete-item:hover, .autocomplete-item.active {
+    background: rgba(255,203,5,0.08);
+    color: var(--accent);
+  }
+
+  .poke-sprite {
+    width: 28px; height: 28px;
+    image-rendering: pixelated;
+    flex-shrink: 0;
+  }
+
+  /* ── Card preview ── */
+  .card-preview-wrap {
+    margin-top: 8px;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 80px;
+    transition: border-color 0.2s;
+  }
+
+  .card-preview-wrap.has-card {
+    border-color: rgba(255,203,5,0.3);
+  }
+
+  .card-thumb {
+    width: 56px;
+    height: 80px;
+    object-fit: contain;
+    border-radius: 6px;
+    image-rendering: auto;
+    flex-shrink: 0;
+    background: rgba(0,0,0,0.2);
+  }
+
+  .card-thumb-placeholder {
+    width: 56px; height: 80px;
+    border-radius: 6px;
+    background: var(--border);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted);
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  .card-info { flex: 1; min-width: 0; }
+  .card-name { font-size: 13px; font-weight: 500; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-set { font-size: 11px; color: var(--muted); }
+  .card-number { font-size: 10px; color: var(--muted); margin-top: 2px; font-family: 'Press Start 2P', monospace; }
+
+  /* ── Push button ── */
+  .push-btn {
+    width: 100%;
+    margin-top: 8px;
+    padding: 16px;
+    background: var(--accent);
+    color: #0a0a0f;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.1s, box-shadow 0.2s, opacity 0.2s;
+    box-shadow: 0 4px 20px rgba(255,203,5,0.25);
+  }
+
+  .push-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(255,203,5,0.35);
+  }
+
+  .push-btn:active:not(:disabled) { transform: translateY(0); }
+
+  .push-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  .push-btn .btn-ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.35);
+    transform: scale(0);
+    animation: ripple 0.5s ease-out;
+    pointer-events: none;
+  }
+
+  /* ── Status toast ── */
+  .status {
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    animation: fadeUp 0.3s ease;
+  }
+
+  .status.show { display: flex; }
+  .status.success { background: rgba(64,192,87,0.12); border: 1px solid rgba(64,192,87,0.3); color: var(--success); }
+  .status.error   { background: rgba(250,82,82,0.12);  border: 1px solid rgba(250,82,82,0.3);  color: var(--error);   }
+  .status.loading { background: rgba(255,203,5,0.08);  border: 1px solid rgba(255,203,5,0.2);  color: var(--accent);  }
+
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,203,5,0.2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+
+  /* ── Config section ── */
+  .config-toggle {
+    margin-top: 20px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: color 0.2s;
+    user-select: none;
+  }
+  .config-toggle:hover { color: var(--text); }
+
+  .config-panel {
+    margin-top: 16px;
+    padding: 18px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    display: none;
+  }
+  .config-panel.open { display: block; }
+
+  .config-field { margin-bottom: 14px; }
+  .config-field:last-child { margin-bottom: 0; }
+
+  .config-label {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    display: block;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    letter-spacing: 0.5px;
+  }
+
+  .config-field input {
+    width: 100%;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: monospace;
+    font-size: 12px;
+    padding: 10px 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .config-field input:focus { border-color: var(--accent); }
+
+  .save-config-btn {
+    width: 100%;
+    padding: 10px;
+    background: var(--accent2);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    margin-top: 14px;
+    transition: opacity 0.2s;
+  }
+  .save-config-btn:hover { opacity: 0.85; }
+
+  /* ── Animations ── */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes ripple {
+    to { transform: scale(4); opacity: 0; }
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,203,5,0.4); }
+    50%       { box-shadow: 0 0 0 10px rgba(255,203,5,0); }
+  }
+
+  .push-btn.sending { animation: pulse 1s infinite; }
+
+  /* ── Footer ── */
+  footer {
+    margin-top: 32px;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.7;
+  }
+
+  footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">PokéFrame</div>
+  <p class="tagline">Send a card to your Raspberry Pi display</p>
+</header>
+
+<div class="card">
+
+  <!-- Step 1: Pokemon search -->
+  <div class="step" id="step1">
+    <div class="step-label"><span class="step-num">1</span> Choose a Pokémon</div>
+    <div class="search-wrap">
+      <span class="search-icon">⌕</span>
+      <input type="text" id="pokeSearch" placeholder="Search Pokémon..." autocomplete="off" spellcheck="false">
+      <div class="autocomplete-list" id="autoList"></div>
+    </div>
+  </div>
+
+  <!-- Step 2: Card selector -->
+  <div class="step" id="step2">
+    <div class="step-label"><span class="step-num">2</span> Choose a card</div>
+    <select id="cardSelect" disabled>
+      <option value="">— search a Pokémon first —</option>
+    </select>
+    <div class="card-preview-wrap" id="cardPreview">
+      <div class="card-thumb-placeholder">🃏</div>
+      <div class="card-info">
+        <div class="card-name" style="color:var(--muted)">No card selected</div>
+        <div class="card-set">Select a Pokémon and card above</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Push -->
+  <div class="step">
+    <div class="step-label"><span class="step-num">3</span> Send to display</div>
+    <button class="push-btn" id="pushBtn" disabled>▶ PUSH TO DISPLAY</button>
+    <div class="status" id="statusMsg"></div>
+  </div>
+
+  <!-- Config toggle -->
+  <div class="config-toggle" id="configToggle">⚙ Firebase config <span id="configArrow">▾</span></div>
+  <div class="config-panel" id="configPanel">
+    <div class="config-field">
+      <label class="config-label">Firebase Project ID</label>
+      <input type="text" id="cfgProjectId" placeholder="your-project-id">
+    </div>
+    <div class="config-field">
+      <label class="config-label">Firestore API Key</label>
+      <input type="text" id="cfgApiKey" placeholder="AIzaSy...">
+    </div>
+    <button class="save-config-btn" id="saveConfigBtn">💾 SAVE CONFIG</button>
+  </div>
+
+</div>
+
+<footer>
+  Uses <a href="https://pokemontcg.io" target="_blank">Pokémon TCG API</a> &amp; Firebase Firestore<br>
+  Data updates instantly on your Pi display ⚡
+</footer>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// ─────────────────────────────────────────────
+//  CONFIG  (saved to localStorage)
+// ─────────────────────────────────────────────
+const LS_KEY = 'pokeframe_config';
+
+function loadConfig() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY)) || {}; }
+  catch { return {}; }
+}
+function saveConfig(cfg) {
+  localStorage.setItem(LS_KEY, JSON.stringify(cfg));
+}
+
+let cfg = loadConfig();
+
+const cfgProjectId = document.getElementById('cfgProjectId');
+const cfgApiKey    = document.getElementById('cfgApiKey');
+
+if (cfg.projectId) cfgProjectId.value = cfg.projectId;
+if (cfg.apiKey)    cfgApiKey.value    = cfg.apiKey;
+
+document.getElementById('saveConfigBtn').addEventListener('click', () => {
+  cfg = { projectId: cfgProjectId.value.trim(), apiKey: cfgApiKey.value.trim() };
+  saveConfig(cfg);
+  showStatus('Config saved! ✓', 'success');
+  setTimeout(() => document.getElementById('configPanel').classList.remove('open'), 1000);
+});
+
+document.getElementById('configToggle').addEventListener('click', () => {
+  const panel = document.getElementById('configPanel');
+  const arrow = document.getElementById('configArrow');
+  panel.classList.toggle('open');
+  arrow.textContent = panel.classList.contains('open') ? '▴' : '▾';
+});
+
+// ─────────────────────────────────────────────
+//  POKEMON SEARCH  (PokeAPI for names/sprites)
+// ─────────────────────────────────────────────
+let allPokemon = [];
+let selectedPokemon = null;
+let selectedCard    = null;
+let allCards        = [];
+
+async function loadPokemonList() {
+  try {
+    const r = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1025');
+    const d = await r.json();
+    allPokemon = d.results.map(p => p.name);
+  } catch(e) {
+    console.error('Failed to load Pokémon list', e);
+  }
+}
+
+loadPokemonList();
+
+const searchInput = document.getElementById('pokeSearch');
+const autoList    = document.getElementById('autoList');
+
+function spriteUrl(name) {
+  // Use PokeAPI sprite via dex number lookup isn't needed — use name directly
+  return `https://img.pokemondb.net/sprites/sword-shield/icon/${name}.png`;
+}
+
+let activeIdx = -1;
+
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.trim().toLowerCase();
+  activeIdx = -1;
+  if (!q) { autoList.classList.remove('open'); return; }
+
+  const matches = allPokemon
+    .filter(n => n.includes(q))
+    .sort((a, b) => a.startsWith(q) ? -1 : b.startsWith(q) ? 1 : 0)
+    .slice(0, 20);
+
+  if (!matches.length) { autoList.classList.remove('open'); return; }
+
+  autoList.innerHTML = matches.map(name =>
+    `<div class="autocomplete-item" data-name="${name}">
+       <img class="poke-sprite" src="${spriteUrl(name)}" onerror="this.style.display='none'" alt="">
+       <span>${capitalize(name)}</span>
+     </div>`
+  ).join('');
+  autoList.classList.add('open');
+});
+
+autoList.addEventListener('click', e => {
+  const item = e.target.closest('.autocomplete-item');
+  if (!item) return;
+  selectPokemon(item.dataset.name);
+});
+
+searchInput.addEventListener('keydown', e => {
+  const items = autoList.querySelectorAll('.autocomplete-item');
+  if (e.key === 'ArrowDown') { activeIdx = Math.min(activeIdx + 1, items.length - 1); highlightItem(items); e.preventDefault(); }
+  if (e.key === 'ArrowUp')   { activeIdx = Math.max(activeIdx - 1, 0); highlightItem(items); e.preventDefault(); }
+  if (e.key === 'Enter' && activeIdx >= 0) { items[activeIdx].click(); }
+  if (e.key === 'Escape') { autoList.classList.remove('open'); }
+});
+
+function highlightItem(items) {
+  items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+  if (activeIdx >= 0) items[activeIdx].scrollIntoView({ block: 'nearest' });
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-wrap')) autoList.classList.remove('open');
+});
+
+// ─────────────────────────────────────────────
+//  SELECT POKEMON → fetch TCG cards
+// ─────────────────────────────────────────────
+async function selectPokemon(name) {
+  selectedPokemon = name;
+  selectedCard    = null;
+  searchInput.value = capitalize(name);
+  autoList.classList.remove('open');
+
+  const cardSelect = document.getElementById('cardSelect');
+  cardSelect.disabled = true;
+  cardSelect.innerHTML = '<option>Loading cards...</option>';
+  resetPreview();
+  document.getElementById('pushBtn').disabled = true;
+
+  try {
+    // Pokémon TCG API — free, no key needed for basic queries
+    const r = await fetch(
+      `https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(name)}"&pageSize=250&select=id,name,number,set,images`
+    );
+    const d = await r.json();
+    allCards = (d.data || []).sort((a, b) => a.set.releaseDate?.localeCompare(b.set.releaseDate));
+
+    if (!allCards.length) {
+      cardSelect.innerHTML = '<option>No cards found</option>';
+      return;
+    }
+
+    cardSelect.innerHTML = '<option value="">— select a card —</option>' +
+      allCards.map(c =>
+        `<option value="${c.id}">${c.set.name} · #${c.number} · ${c.name}</option>`
+      ).join('');
+    cardSelect.disabled = false;
+
+  } catch(e) {
+    cardSelect.innerHTML = '<option>Error loading cards</option>';
+    showStatus('Failed to load cards. Check connection.', 'error');
+  }
+}
+
+// ─────────────────────────────────────────────
+//  CARD SELECT → show preview
+// ─────────────────────────────────────────────
+document.getElementById('cardSelect').addEventListener('change', e => {
+  const id = e.target.value;
+  if (!id) { resetPreview(); document.getElementById('pushBtn').disabled = true; return; }
+
+  selectedCard = allCards.find(c => c.id === id);
+  if (!selectedCard) return;
+
+  const preview = document.getElementById('cardPreview');
+  preview.classList.add('has-card');
+  preview.innerHTML = `
+    <img class="card-thumb" src="${selectedCard.images.small}" alt="${selectedCard.name}" loading="lazy">
+    <div class="card-info">
+      <div class="card-name">${selectedCard.name}</div>
+      <div class="card-set">${selectedCard.set.name}</div>
+      <div class="card-number">#${selectedCard.number}</div>
+    </div>
+  `;
+  document.getElementById('pushBtn').disabled = false;
+});
+
+function resetPreview() {
+  const preview = document.getElementById('cardPreview');
+  preview.classList.remove('has-card');
+  preview.innerHTML = `
+    <div class="card-thumb-placeholder">🃏</div>
+    <div class="card-info">
+      <div class="card-name" style="color:var(--muted)">No card selected</div>
+      <div class="card-set">Select a Pokémon and card above</div>
+    </div>
+  `;
+}
+
+// ─────────────────────────────────────────────
+//  PUSH TO FIREBASE
+// ─────────────────────────────────────────────
+document.getElementById('pushBtn').addEventListener('click', async (e) => {
+  if (!selectedCard) return;
+  if (!cfg.projectId || !cfg.apiKey) {
+    showStatus('⚠ Set your Firebase config first (tap ⚙ below)', 'error');
+    document.getElementById('configPanel').classList.add('open');
+    return;
+  }
+
+  const btn = document.getElementById('pushBtn');
+  btn.disabled = true;
+  btn.classList.add('sending');
+  btn.textContent = '⏳ SENDING...';
+  showStatus('Connecting to Firebase...', 'loading', true);
+
+  // Ripple
+  const rect = btn.getBoundingClientRect();
+  const ripple = document.createElement('span');
+  ripple.className = 'btn-ripple';
+  ripple.style.cssText = `width:${rect.width}px;height:${rect.width}px;left:0;top:${(rect.height-rect.width)/2}px`;
+  btn.appendChild(ripple);
+  setTimeout(() => ripple.remove(), 600);
+
+  try {
+    const app = initializeApp({
+      apiKey:    cfg.apiKey,
+      projectId: cfg.projectId,
+    }, `pokeframe-${Date.now()}`);
+    const db = getFirestore(app);
+
+    await setDoc(doc(db, 'display', 'current'), {
+      cardId:      selectedCard.id,
+      cardName:    selectedCard.name,
+      setName:     selectedCard.set.name,
+      imageUrl:    selectedCard.images.large || selectedCard.images.small,
+      imageSmall:  selectedCard.images.small,
+      pokemon:     selectedPokemon,
+      pushedAt:    new Date().toISOString(),
+      number:      selectedCard.number,
+    });
+
+    showStatus(`✓ Sent "${selectedCard.name}" to your display!`, 'success');
+    btn.textContent = '✓ PUSHED!';
+    setTimeout(() => {
+      btn.textContent = '▶ PUSH TO DISPLAY';
+      btn.disabled = false;
+      btn.classList.remove('sending');
+    }, 2500);
+
+  } catch(err) {
+    console.error(err);
+    showStatus('Firebase error: ' + err.message, 'error');
+    btn.textContent = '▶ PUSH TO DISPLAY';
+    btn.disabled = false;
+    btn.classList.remove('sending');
+  }
+});
+
+// ─────────────────────────────────────────────
+//  HELPERS
+// ─────────────────────────────────────────────
+function capitalize(s) {
+  return s.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('-');
+}
+
+function showStatus(msg, type, spinner = false) {
+  const el = document.getElementById('statusMsg');
+  el.className = `status show ${type}`;
+  el.innerHTML = spinner
+    ? `<div class="spinner"></div><span>${msg}</span>`
+    : `<span>${msg}</span>`;
+}
+</script>
+</body>
+</html>
