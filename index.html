@@ -3,423 +3,286 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PokéFrame — Send to Display</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
+<title>PokéFrame</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-
 <style>
-  :root {
-    --bg: #0a0a0f;
-    --surface: #13131a;
-    --surface2: #1c1c28;
-    --border: #2a2a3d;
-    --accent: #ffcb05;
-    --accent2: #3b5bdb;
-    --text: #f0f0f5;
-    --muted: #6b6b8a;
-    --success: #40c057;
-    --error: #fa5252;
-    --radius: 12px;
-  }
+:root {
+  --bg: #0a0a0f;
+  --surface: #13131a;
+  --surface2: #1c1c28;
+  --border: #2a2a3d;
+  --accent: #ffcb05;
+  --accent2: #3b5bdb;
+  --text: #f0f0f5;
+  --muted: #6b6b8a;
+  --success: #40c057;
+  --error: #fa5252;
+  --warn: #fd7e14;
+  --radius: 12px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+  padding: 20px 16px 60px;
+  background-image:
+    radial-gradient(ellipse 80% 40% at 50% -10%, rgba(59,91,219,0.14) 0%, transparent 70%),
+    url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.012'%3E%3Crect x='0' y='0' width='1' height='1'/%3E%3Crect x='20' y='20' width='1' height='1'/%3E%3C/g%3E%3C/svg%3E");
+}
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+/* HEADER */
+header { text-align: center; margin-bottom: 24px; animation: fadeDown 0.5s ease both; }
+.logo {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(14px, 4vw, 20px); color: var(--accent);
+  text-shadow: 0 0 28px rgba(255,203,5,0.35), 3px 3px 0 rgba(0,0,0,0.6);
+}
+.tagline { margin-top: 8px; color: var(--muted); font-size: 12px; }
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'DM Sans', sans-serif;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 24px 16px 48px;
-    background-image:
-      radial-gradient(ellipse 80% 40% at 50% -10%, rgba(59,91,219,0.18) 0%, transparent 70%),
-      url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.015'%3E%3Crect x='0' y='0' width='1' height='1'/%3E%3Crect x='20' y='20' width='1' height='1'/%3E%3C/g%3E%3C/svg%3E");
-  }
+/* PANEL */
+.panel {
+  width: 100%; max-width: 440px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; padding: 22px 18px;
+  animation: fadeUp 0.45s ease both 0.08s;
+}
+.step { margin-bottom: 20px; }
+.step-label {
+  font-family: 'Press Start 2P', monospace; font-size: 7px;
+  color: var(--muted); letter-spacing: 1px; margin-bottom: 9px;
+  display: flex; align-items: center; gap: 7px;
+}
+.step-num {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--accent2); color: #fff; font-size: 6px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
 
-  /* ── Header ── */
-  header {
-    text-align: center;
-    margin-bottom: 36px;
-    animation: fadeDown 0.6s ease both;
-  }
+/* SEARCH */
+.search-wrap { position: relative; }
+.search-wrap input {
+  width: 100%; background: var(--surface2);
+  border: 1.5px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 15px;
+  padding: 12px 16px 12px 40px; outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.search-wrap input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,203,5,0.1); }
+.search-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; font-size: 15px; }
 
-  .logo {
-    font-family: 'Press Start 2P', monospace;
-    font-size: clamp(16px, 5vw, 22px);
-    color: var(--accent);
-    text-shadow: 0 0 30px rgba(255,203,5,0.4), 3px 3px 0 rgba(0,0,0,0.5);
-    letter-spacing: 1px;
-    line-height: 1.4;
-  }
+/* AUTOCOMPLETE */
+.autocomplete-list {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: var(--radius); max-height: 220px; overflow-y: auto;
+  z-index: 100; display: none; scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.autocomplete-list.open { display: block; }
+.autocomplete-item {
+  padding: 10px 14px; cursor: pointer; font-size: 13px;
+  display: flex; align-items: center; gap: 9px;
+  transition: background 0.1s; border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.autocomplete-item:last-child { border-bottom: none; }
+.autocomplete-item:hover, .autocomplete-item.active { background: rgba(255,203,5,0.07); color: var(--accent); }
+.poke-sprite { width: 26px; height: 26px; image-rendering: pixelated; flex-shrink: 0; }
 
-  .tagline {
-    margin-top: 10px;
-    color: var(--muted);
-    font-size: 13px;
-    font-weight: 300;
-    letter-spacing: 0.5px;
-  }
+/* CARD VIEWER */
+.card-viewer {
+  display: flex; align-items: center; justify-content: center;
+  gap: 10px; margin-top: 6px; min-height: 240px;
+}
+.nav-btn {
+  background: var(--surface2); border: 1.5px solid var(--border); border-radius: 50%;
+  width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--muted); font-size: 16px;
+  transition: all 0.15s; flex-shrink: 0; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.nav-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: rgba(255,203,5,0.06); }
+.nav-btn:disabled { opacity: 0.18; cursor: not-allowed; }
 
-  /* ── Card ── */
-  .card {
-    width: 100%;
-    max-width: 420px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 28px 24px;
-    animation: fadeUp 0.5s ease both;
-    animation-delay: 0.1s;
-  }
+.card-display { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; }
 
-  /* ── Steps ── */
-  .step {
-    margin-bottom: 24px;
-  }
+.card-img-wrap {
+  width: 176px; height: 246px; border-radius: 10px; overflow: hidden;
+  background: var(--surface2); border: 1.5px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.2s, box-shadow 0.3s;
+}
+.card-img-wrap.loaded { border-color: rgba(255,203,5,0.3); box-shadow: 0 6px 28px rgba(0,0,0,0.5); }
+.card-img-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.card-placeholder-icon { font-size: 48px; opacity: 0.18; }
 
-  .step-label {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 8px;
-    color: var(--muted);
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+.card-counter {
+  font-family: 'Press Start 2P', monospace; font-size: 7px;
+  color: var(--muted); letter-spacing: 0.5px;
+}
 
-  .step-num {
-    width: 20px; height: 20px;
-    border-radius: 50%;
-    background: var(--accent2);
-    color: #fff;
-    font-size: 7px;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-  }
+/* DROPDOWN */
+.card-select-row { margin-top: 10px; }
+select {
+  width: 100%; background: var(--surface2);
+  border: 1.5px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px;
+  padding: 10px 36px 10px 12px; outline: none; cursor: pointer; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 7L11 1' stroke='%236b6b8a' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center;
+  transition: border-color 0.2s;
+}
+select:focus { border-color: var(--accent); }
+select:disabled { opacity: 0.3; cursor: not-allowed; }
+select option { background: var(--surface2); color: var(--text); }
 
-  /* ── Search input ── */
-  .search-wrap {
-    position: relative;
-  }
+/* PUSH BUTTON */
+.push-btn {
+  width: 100%; height: 58px; padding: 0;
+  background: var(--accent); color: #0a0a0f;
+  border: none; border-radius: var(--radius);
+  font-family: 'Press Start 2P', monospace; font-size: 9px;
+  cursor: pointer; letter-spacing: 1px;
+  position: relative; overflow: hidden;
+  transition: transform 0.1s, box-shadow 0.2s, opacity 0.2s;
+  box-shadow: 0 4px 18px rgba(255,203,5,0.22);
+}
+.push-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 26px rgba(255,203,5,0.32); }
+.push-btn:active:not(:disabled) { transform: translateY(0); }
+.push-btn:disabled { opacity: 0.28; cursor: not-allowed; box-shadow: none; }
 
-  .search-wrap input {
-    width: 100%;
-    background: var(--surface2);
-    border: 1.5px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 15px;
-    padding: 13px 16px 13px 42px;
-    outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
-    appearance: none;
-  }
+.push-btn-label {
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; pointer-events: none;
+}
 
-  .search-wrap input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(255,203,5,0.12);
-  }
+/* Walking animation overlay */
+.walk-layer {
+  display: none; align-items: center;
+  width: 100%; height: 100%; padding: 0 14px;
+  gap: 10px; pointer-events: none;
+}
+.push-btn.sending .push-btn-label { display: none; }
+.push-btn.sending .walk-layer      { display: flex; }
 
-  .search-icon {
-    position: absolute;
-    left: 14px; top: 50%;
-    transform: translateY(-50%);
-    color: var(--muted);
-    pointer-events: none;
-    font-size: 16px;
-  }
+.walk-track {
+  flex: 1; height: 5px; background: rgba(0,0,0,0.18);
+  border-radius: 3px; position: relative; overflow: visible;
+}
+.walk-fill {
+  height: 100%; border-radius: 3px; background: rgba(0,0,0,0.22); width: 0%;
+}
+.walk-pokemon {
+  position: absolute; top: 50%; transform: translateY(-62%);
+  left: 0%; image-rendering: pixelated; width: 28px; height: 28px;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3));
+}
+.walk-chip { font-size: 22px; flex-shrink: 0; }
 
-  /* ── Dropdown ── */
-  select {
-    width: 100%;
-    background: var(--surface2);
-    border: 1.5px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 15px;
-    padding: 13px 16px;
-    outline: none;
-    cursor: pointer;
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 7L11 1' stroke='%236b6b8a' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 16px center;
-    transition: border-color 0.2s, box-shadow 0.2s;
-  }
+/* STATUS */
+.status {
+  margin-top: 12px; padding: 10px 14px; border-radius: var(--radius);
+  font-size: 12px; display: none; align-items: center; gap: 8px;
+  animation: fadeUp 0.25s ease;
+}
+.status.show { display: flex; }
+.status.success { background: rgba(64,192,87,0.1);  border: 1px solid rgba(64,192,87,0.3); color: var(--success); }
+.status.error   { background: rgba(250,82,82,0.1);  border: 1px solid rgba(250,82,82,0.3); color: var(--error);   }
+.status.loading { background: rgba(255,203,5,0.07); border: 1px solid rgba(255,203,5,0.2); color: var(--accent);  }
+.status.warn    { background: rgba(253,126,20,0.1); border: 1px solid rgba(253,126,20,0.3);color: var(--warn);    }
+.spinner {
+  width: 14px; height: 14px; border: 2px solid rgba(255,203,5,0.2);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin 0.7s linear infinite; flex-shrink: 0;
+}
 
-  select:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(255,203,5,0.12);
-  }
+/* ══════════════════════════════════════════════════════════════
+   🛠  DEBUG PANEL
+   TO DELETE FOR PRODUCTION:
+     1. Delete the div.debug-toggle element
+     2. Delete the div.debug-panel element
+     3. Delete the JS block marked  // ── DEBUG ONLY ──
+   ══════════════════════════════════════════════════════════════ */
+.debug-toggle {
+  margin-top: 16px; padding: 10px 14px;
+  background: rgba(253,126,20,0.07); border: 1px dashed rgba(253,126,20,0.3);
+  border-radius: var(--radius); cursor: pointer; user-select: none;
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: 'Press Start 2P', monospace; font-size: 7px; color: var(--warn);
+}
+.debug-toggle:hover { background: rgba(253,126,20,0.12); }
+.debug-panel {
+  display: none; margin-top: 8px; background: #0c0c0c;
+  border: 1px solid rgba(253,126,20,0.18); border-radius: var(--radius);
+  padding: 14px; font-family: monospace; font-size: 11px;
+  max-height: 360px; overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: #2a2a2a transparent;
+}
+.debug-panel.open { display: block; }
+.dbg-section { margin-bottom: 14px; }
+.dbg-title {
+  font-family: 'Press Start 2P', monospace; font-size: 6px;
+  color: var(--warn); letter-spacing: 0.5px; margin-bottom: 7px;
+}
+/* Tier drag list */
+.tier-list { display: flex; flex-direction: column; gap: 5px; }
+.tier-item {
+  display: flex; align-items: center; gap: 8px;
+  background: #181818; border: 1px solid #252525; border-radius: 6px;
+  padding: 7px 10px; cursor: grab; user-select: none; transition: background 0.1s;
+}
+.tier-item:active { cursor: grabbing; }
+.tier-item.dragging  { opacity: 0.35; }
+.tier-item.drag-over { border-color: var(--warn); background: rgba(253,126,20,0.07); }
+.tier-handle { color: #3a3a3a; font-size: 13px; flex-shrink: 0; }
+.tier-badge {
+  font-family: 'Press Start 2P', monospace; font-size: 6px;
+  padding: 2px 5px; border-radius: 3px; flex-shrink: 0;
+}
+.t1 { background: rgba(64,192,87,0.18); color: var(--success); }
+.t2 { background: rgba(59,91,219,0.18); color: #7b97ff; }
+.t3 { background: rgba(255,203,5,0.12); color: var(--accent); }
+.tier-name { flex: 1; color: #bbb; font-size: 10px; line-height: 1.4; }
+.tier-sub  { color: #555; font-size: 9px; }
+.tier-status {
+  font-size: 9px; padding: 2px 6px; border-radius: 10px; background: #1e1e1e; color: #555;
+}
+.tier-status.ok      { background: rgba(64,192,87,0.12);  color: var(--success); }
+.tier-status.fail    { background: rgba(250,82,82,0.12);  color: var(--error);   }
+.tier-status.pending { background: rgba(255,203,5,0.08);  color: var(--accent);  }
+/* URL blocks */
+.url-block {
+  background: #111; border: 1px solid #1e1e1e; border-radius: 5px;
+  padding: 7px 9px; font-size: 9px; color: #777;
+  word-break: break-all; line-height: 1.5; margin-bottom: 5px;
+}
+.url-label { font-family: 'Press Start 2P', monospace; font-size: 6px; color: var(--warn); display: block; margin-bottom: 3px; }
+/* Log */
+.log-list { display: flex; flex-direction: column; gap: 3px; }
+.log-row {
+  display: flex; gap: 6px; align-items: flex-start;
+  background: #111; border-left: 2px solid #2a2a2a;
+  border-radius: 3px; padding: 4px 6px; font-size: 10px;
+  color: #888; line-height: 1.4; word-break: break-word;
+}
+.log-row.ok    { border-left-color: var(--success); color: #9ed49e; }
+.log-row.error { border-left-color: var(--error);   color: #e8a0a0; }
+.log-row.warn  { border-left-color: var(--warn);    color: #e8c49a; }
+.log-row.info  { border-left-color: #3b5bdb; }
+.log-time { color: #3a3a3a; flex-shrink: 0; font-size: 9px; }
+.dbg-clear {
+  background: none; border: 1px solid #2a2a2a; border-radius: 4px;
+  color: #444; font-size: 9px; padding: 3px 8px; cursor: pointer; margin-top: 6px;
+}
+.dbg-clear:hover { border-color: var(--warn); color: var(--warn); }
+/* ── END DEBUG STYLES ── */
 
-  select:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
+/* ANIMATIONS */
+@keyframes fadeDown { from { opacity:0; transform:translateY(-14px); } to { opacity:1; transform:translateY(0); } }
+@keyframes fadeUp   { from { opacity:0; transform:translateY(10px);  } to { opacity:1; transform:translateY(0); } }
+@keyframes spin     { to { transform:rotate(360deg); } }
 
-  select option {
-    background: var(--surface2);
-    color: var(--text);
-  }
-
-  /* ── Autocomplete dropdown ── */
-  .autocomplete-list {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0; right: 0;
-    background: var(--surface2);
-    border: 1.5px solid var(--border);
-    border-radius: var(--radius);
-    max-height: 220px;
-    overflow-y: auto;
-    z-index: 100;
-    display: none;
-    scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
-  }
-
-  .autocomplete-list.open { display: block; }
-
-  .autocomplete-item {
-    padding: 11px 16px;
-    cursor: pointer;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    transition: background 0.12s;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
-  }
-
-  .autocomplete-item:last-child { border-bottom: none; }
-  .autocomplete-item:hover, .autocomplete-item.active {
-    background: rgba(255,203,5,0.08);
-    color: var(--accent);
-  }
-
-  .poke-sprite {
-    width: 28px; height: 28px;
-    image-rendering: pixelated;
-    flex-shrink: 0;
-  }
-
-  /* ── Card preview ── */
-  .card-preview-wrap {
-    margin-top: 8px;
-    background: var(--surface2);
-    border: 1.5px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    min-height: 80px;
-    transition: border-color 0.2s;
-  }
-
-  .card-preview-wrap.has-card {
-    border-color: rgba(255,203,5,0.3);
-  }
-
-  .card-thumb {
-    width: 56px;
-    height: 80px;
-    object-fit: contain;
-    border-radius: 6px;
-    image-rendering: auto;
-    flex-shrink: 0;
-    background: rgba(0,0,0,0.2);
-  }
-
-  .card-thumb-placeholder {
-    width: 56px; height: 80px;
-    border-radius: 6px;
-    background: var(--border);
-    display: flex; align-items: center; justify-content: center;
-    color: var(--muted);
-    font-size: 22px;
-    flex-shrink: 0;
-  }
-
-  .card-info { flex: 1; min-width: 0; }
-  .card-name { font-size: 13px; font-weight: 500; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .card-set { font-size: 11px; color: var(--muted); }
-  .card-number { font-size: 10px; color: var(--muted); margin-top: 2px; font-family: 'Press Start 2P', monospace; }
-
-  /* ── Push button ── */
-  .push-btn {
-    width: 100%;
-    margin-top: 8px;
-    padding: 16px;
-    background: var(--accent);
-    color: #0a0a0f;
-    border: none;
-    border-radius: var(--radius);
-    font-family: 'Press Start 2P', monospace;
-    font-size: 10px;
-    cursor: pointer;
-    letter-spacing: 1px;
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.1s, box-shadow 0.2s, opacity 0.2s;
-    box-shadow: 0 4px 20px rgba(255,203,5,0.25);
-  }
-
-  .push-btn:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 28px rgba(255,203,5,0.35);
-  }
-
-  .push-btn:active:not(:disabled) { transform: translateY(0); }
-
-  .push-btn:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-    box-shadow: none;
-  }
-
-  .push-btn .btn-ripple {
-    position: absolute;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.35);
-    transform: scale(0);
-    animation: ripple 0.5s ease-out;
-    pointer-events: none;
-  }
-
-  /* ── Status toast ── */
-  .status {
-    margin-top: 16px;
-    padding: 12px 16px;
-    border-radius: var(--radius);
-    font-size: 13px;
-    display: none;
-    align-items: center;
-    gap: 10px;
-    animation: fadeUp 0.3s ease;
-  }
-
-  .status.show { display: flex; }
-  .status.success { background: rgba(64,192,87,0.12); border: 1px solid rgba(64,192,87,0.3); color: var(--success); }
-  .status.error   { background: rgba(250,82,82,0.12);  border: 1px solid rgba(250,82,82,0.3);  color: var(--error);   }
-  .status.loading { background: rgba(255,203,5,0.08);  border: 1px solid rgba(255,203,5,0.2);  color: var(--accent);  }
-
-  .spinner {
-    width: 16px; height: 16px;
-    border: 2px solid rgba(255,203,5,0.2);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    flex-shrink: 0;
-  }
-
-  /* ── Config section ── */
-  .config-toggle {
-    margin-top: 20px;
-    text-align: center;
-    cursor: pointer;
-    font-size: 11px;
-    color: var(--muted);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    transition: color 0.2s;
-    user-select: none;
-  }
-  .config-toggle:hover { color: var(--text); }
-
-  .config-panel {
-    margin-top: 16px;
-    padding: 18px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    display: none;
-  }
-  .config-panel.open { display: block; }
-
-  .config-field { margin-bottom: 14px; }
-  .config-field:last-child { margin-bottom: 0; }
-
-  .config-label {
-    font-size: 11px;
-    color: var(--muted);
-    margin-bottom: 6px;
-    display: block;
-    font-family: 'Press Start 2P', monospace;
-    font-size: 7px;
-    letter-spacing: 0.5px;
-  }
-
-  .config-field input {
-    width: 100%;
-    background: var(--surface);
-    border: 1.5px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    font-family: monospace;
-    font-size: 12px;
-    padding: 10px 12px;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-  .config-field input:focus { border-color: var(--accent); }
-
-  .save-config-btn {
-    width: 100%;
-    padding: 10px;
-    background: var(--accent2);
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    font-family: 'Press Start 2P', monospace;
-    font-size: 8px;
-    cursor: pointer;
-    letter-spacing: 0.5px;
-    margin-top: 14px;
-    transition: opacity 0.2s;
-  }
-  .save-config-btn:hover { opacity: 0.85; }
-
-  /* ── Animations ── */
-  @keyframes fadeDown {
-    from { opacity: 0; transform: translateY(-16px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(12px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-  @keyframes ripple {
-    to { transform: scale(4); opacity: 0; }
-  }
-  @keyframes pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(255,203,5,0.4); }
-    50%       { box-shadow: 0 0 0 10px rgba(255,203,5,0); }
-  }
-
-  .push-btn.sending { animation: pulse 1s infinite; }
-
-  /* ── Footer ── */
-  footer {
-    margin-top: 32px;
-    font-size: 11px;
-    color: var(--muted);
-    text-align: center;
-    line-height: 1.7;
-  }
-
-  footer a { color: var(--muted); }
+footer { margin-top: 26px; font-size: 11px; color: var(--muted); text-align: center; line-height: 1.8; }
+footer a { color: var(--muted); }
 </style>
 </head>
 <body>
@@ -429,428 +292,484 @@
   <p class="tagline">Send a card to your Raspberry Pi display</p>
 </header>
 
-<div class="card">
+<div class="panel">
 
-  <!-- Step 1: Pokemon search -->
-  <div class="step" id="step1">
+  <!-- Step 1 -->
+  <div class="step">
     <div class="step-label"><span class="step-num">1</span> Choose a Pokémon</div>
     <div class="search-wrap">
       <span class="search-icon">⌕</span>
-      <input type="text" id="pokeSearch" placeholder="Search Pokémon..." autocomplete="off" spellcheck="false">
+      <input type="text" id="pokeSearch" placeholder="Search Pokémon…" autocomplete="off" spellcheck="false">
       <div class="autocomplete-list" id="autoList"></div>
     </div>
   </div>
 
-  <!-- Step 2: Card selector -->
-  <div class="step" id="step2">
-    <div class="step-label"><span class="step-num">2</span> Choose a card</div>
-    <select id="cardSelect" disabled>
-      <option value="">— search a Pokémon first —</option>
-    </select>
-    <div class="card-preview-wrap" id="cardPreview">
-      <div class="card-thumb-placeholder">🃏</div>
-      <div class="card-info">
-        <div class="card-name" style="color:var(--muted)">No card selected</div>
-        <div class="card-set">Select a Pokémon and card above</div>
+  <!-- Step 2: Big card viewer with prev/next -->
+  <div class="step">
+    <div class="step-label"><span class="step-num">2</span> Browse cards</div>
+    <div class="card-viewer">
+      <button class="nav-btn" id="prevBtn" disabled>&#8592;</button>
+      <div class="card-display">
+        <div class="card-img-wrap" id="cardImgWrap">
+          <span class="card-placeholder-icon">🃏</span>
+        </div>
+        <div class="card-counter" id="cardCounter">— / —</div>
       </div>
+      <button class="nav-btn" id="nextBtn" disabled>&#8594;</button>
+    </div>
+    <div class="card-select-row">
+      <select id="cardSelect" disabled>
+        <option value="">— search a Pokémon first —</option>
+      </select>
     </div>
   </div>
 
-  <!-- Push -->
-  <div class="step">
+  <!-- Step 3: Push -->
+  <div class="step" style="margin-bottom:0">
     <div class="step-label"><span class="step-num">3</span> Send to display</div>
-    <button class="push-btn" id="pushBtn" disabled>▶ PUSH TO DISPLAY</button>
+    <button class="push-btn" id="pushBtn" disabled>
+      <div class="push-btn-label">▶ PUSH TO DISPLAY</div>
+      <div class="walk-layer" id="walkLayer">
+        <div class="walk-track" id="walkTrack">
+          <div class="walk-fill" id="walkFill"></div>
+          <img id="walkSprite" class="walk-pokemon" src="" alt="">
+        </div>
+        <span class="walk-chip">🖥️</span>
+      </div>
+    </button>
     <div class="status" id="statusMsg"></div>
   </div>
 
-  <!-- Config toggle -->
-  <div class="config-toggle" id="configToggle">⚙ Firebase config <span id="configArrow">▾</span></div>
-  <div class="config-panel" id="configPanel">
-    <div class="config-field">
-      <label class="config-label">Firebase Project ID</label>
-      <input type="text" id="cfgProjectId" placeholder="your-project-id">
-    </div>
-    <div class="config-field">
-      <label class="config-label">Firestore API Key</label>
-      <input type="text" id="cfgApiKey" placeholder="AIzaSy...">
-    </div>
-    <button class="save-config-btn" id="saveConfigBtn">💾 SAVE CONFIG</button>
+  <!-- ══════════════════════════════════════════════════════
+       PRODUCTION DELETE START — delete this whole block
+       (from this comment to PRODUCTION DELETE END)
+       ══════════════════════════════════════════════════════ -->
+  <div class="debug-toggle" id="debugToggle">
+    <span>🛠 API DEBUG PANEL</span><span id="dbgArrow">▾</span>
   </div>
+  <div class="debug-panel" id="debugPanel">
+
+    <div class="dbg-section">
+      <div class="dbg-title">TIER PRIORITY — drag to reorder, top = tried first</div>
+      <div class="tier-list" id="tierList"></div>
+      <div style="font-size:9px;color:#444;margin-top:5px">Reload page to reset order</div>
+    </div>
+
+    <div class="dbg-section">
+      <div class="dbg-title">LAST ATTEMPTED URLS</div>
+      <div id="urlBlocks"></div>
+    </div>
+
+    <div class="dbg-section">
+      <div class="dbg-title">API LOG</div>
+      <div class="log-list" id="logList"></div>
+      <button class="dbg-clear" id="clearLog">clear</button>
+    </div>
+
+  </div>
+  <!-- PRODUCTION DELETE END ══════════════════════════════ -->
 
 </div>
 
 <footer>
-  Uses <a href="https://pokemontcg.io" target="_blank">Pokémon TCG API</a> &amp; Firebase Firestore<br>
-  Data updates instantly on your Pi display ⚡
+  Uses <a href="https://pokemontcg.io" target="_blank">Pokémon TCG API</a> &amp; Firebase Firestore &nbsp;⚡
 </footer>
 
-<!-- Firebase SDK -->
 <script type="module">
-import { initializeApp }        from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { initializeApp }             from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// ─────────────────────────────────────────────
-//  FIREBASE CONFIG  (your real credentials)
-// ─────────────────────────────────────────────
-const FIREBASE_CONFIG = {
+// ── Firebase (credentials baked in) ──────────────────────────
+const firebaseApp = initializeApp({
   apiKey:            "AIzaSyCrn8gIBWdM3OuLuxVzn-oMLDc4iCXbJ9w",
   authDomain:        "pkmncarddisplay.firebaseapp.com",
   projectId:         "pkmncarddisplay",
   storageBucket:     "pkmncarddisplay.firebasestorage.app",
   messagingSenderId: "49396278277",
   appId:             "1:49396278277:web:6767d7e85fd33a8c5e286c"
-};
+});
+const db = getFirestore(firebaseApp);
 
-// Init Firebase once at page load
-const firebaseApp = initializeApp(FIREBASE_CONFIG);
-const db          = getFirestore(firebaseApp);
-
-// Hide config panel — credentials are already baked in
-document.getElementById('configToggle').style.display = 'none';
-document.getElementById('configPanel').style.display  = 'none';
-
-// ─────────────────────────────────────────────
-//  POKEMON SEARCH  (PokeAPI for names/sprites)
-// ─────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────
 let allPokemon      = [];
 let selectedPokemon = null;
-let selectedCard    = null;
 let allCards        = [];
+let cardIdx         = 0;
 
+// ══════════════════════════════════════════════════════════════
+// ── DEBUG ONLY ── remove this section for production
+// ══════════════════════════════════════════════════════════════
+const TIER_META = {
+  tier1: { label:'pokemontcg.io',  cls:'t1', desc:'Best data, may rate-limit without key' },
+  tier2: { label:'api.tcgdex.net', cls:'t2', desc:'EU mirror, no key required'            },
+  tier3: { label:'Built-in stubs', cls:'t3', desc:'Always works, limited card list'       },
+};
+let tierOrder    = ['tier1','tier2','tier3'];
+let tierStatuses = { tier1:'pending', tier2:'pending', tier3:'pending' };
+let lastUrls     = {};
+let dragSrc      = null;
+const logEntries = [];
+
+function renderTierList() {
+  const list = document.getElementById('tierList');
+  if (!list) return;
+  list.innerHTML = '';
+  tierOrder.forEach((tid, i) => {
+    const m  = TIER_META[tid];
+    const st = tierStatuses[tid];
+    const el = document.createElement('div');
+    el.className   = 'tier-item';
+    el.draggable   = true;
+    el.dataset.tier = tid;
+    el.innerHTML = `
+      <span class="tier-handle">⠿</span>
+      <span class="tier-badge ${m.cls}">${i+1}</span>
+      <span class="tier-name">${m.label}<br><span class="tier-sub">${m.desc}</span></span>
+      <span class="tier-status ${st}" id="ts-${tid}">${st}</span>
+    `;
+    el.addEventListener('dragstart', () => { dragSrc = tid; el.classList.add('dragging'); });
+    el.addEventListener('dragend',   () => el.classList.remove('dragging'));
+    el.addEventListener('dragover',  e => { e.preventDefault(); el.classList.add('drag-over'); });
+    el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+    el.addEventListener('drop', e => {
+      e.preventDefault(); el.classList.remove('drag-over');
+      if (dragSrc === tid) return;
+      const fi = tierOrder.indexOf(dragSrc), ti = tierOrder.indexOf(tid);
+      tierOrder.splice(fi,1); tierOrder.splice(ti,0,dragSrc);
+      renderTierList();
+      dbgLog(`Order → ${tierOrder.join(' > ')}`, 'warn');
+    });
+    list.appendChild(el);
+  });
+}
+function setTierStatus(tid, st) {
+  tierStatuses[tid] = st;
+  const el = document.getElementById('ts-'+tid);
+  if (el) { el.className = 'tier-status '+st; el.textContent = st; }
+}
+function renderUrls() {
+  const wrap = document.getElementById('urlBlocks');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  Object.entries(lastUrls).forEach(([tid, url]) => {
+    const d = document.createElement('div');
+    d.className = 'url-block';
+    d.innerHTML = `<span class="url-label">${TIER_META[tid]?.label || tid}</span>${url}`;
+    wrap.appendChild(d);
+  });
+}
+function dbgLog(msg, level='info') {
+  const now = new Date();
+  const t = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+  logEntries.unshift({msg,level,t});
+  if (logEntries.length>80) logEntries.pop();
+  renderLog();
+  console[level==='error'?'error':level==='warn'?'warn':'log'](`[${level}] ${msg}`);
+}
+function renderLog() {
+  const el = document.getElementById('logList');
+  if (!el) return;
+  el.innerHTML = logEntries.map(e =>
+    `<div class="log-row ${e.level}"><span class="log-time">${e.t}</span><span>${e.msg}</span></div>`
+  ).join('');
+}
+document.getElementById('debugToggle')?.addEventListener('click', () => {
+  const p = document.getElementById('debugPanel');
+  const a = document.getElementById('dbgArrow');
+  p.classList.toggle('open');
+  a.textContent = p.classList.contains('open') ? '▴' : '▾';
+});
+document.getElementById('clearLog')?.addEventListener('click', () => { logEntries.length=0; renderLog(); });
+renderTierList();
+// ── END DEBUG ONLY ────────────────────────────────────────────
+
+// ── Pokémon list ──────────────────────────────────────────────
 async function loadPokemonList() {
   try {
+    dbgLog('Loading Pokémon list…');
     const r = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1025');
     const d = await r.json();
     allPokemon = d.results.map(p => p.name);
+    dbgLog(`Pokémon list OK — ${allPokemon.length} entries`, 'ok');
   } catch(e) {
-    console.warn('PokeAPI list failed, using built-in fallback list');
-    // Fallback: common Pokémon so the search still works offline
+    dbgLog('PokeAPI list failed, using built-in: '+e.message, 'warn');
     allPokemon = [
       'bulbasaur','ivysaur','venusaur','charmander','charmeleon','charizard',
       'squirtle','wartortle','blastoise','pikachu','raichu','eevee','vaporeon',
       'jolteon','flareon','espeon','umbreon','leafeon','glaceon','sylveon',
       'mewtwo','mew','gengar','snorlax','dragonite','tyranitar','lucario',
       'garchomp','greninja','mimikyu','dragapult','ogerpon','terapagos',
-      'rayquaza','lugia','ho-oh','celebi','kyogre','groudon','deoxys',
-      'dialga','palkia','giratina','arceus','zekrom','reshiram','xerneas',
-      'yveltal','zygarde','solgaleo','lunala','necrozma','zacian','zamazenta',
-      'calyrex','koraidon','miraidon','mewtwo','alakazam','machamp','golem',
-      'arcanine','slowbro','haunter','electabuzz','magmar','jynx','lapras',
-      'ditto','porygon','articuno','zapdos','moltres','togekiss','umbreon',
+      'rayquaza','lugia','ho-oh','celebi','kyogre','groudon','dialga',
+      'palkia','giratina','arceus','zekrom','reshiram','xerneas','yveltal',
+      'solgaleo','lunala','zacian','zamazenta','calyrex','koraidon','miraidon',
+      'alakazam','machamp','arcanine','haunter','electabuzz','lapras','ditto',
+      'articuno','zapdos','moltres','togekiss','garchomp',
     ];
   }
 }
-
 loadPokemonList();
 
+// ── Autocomplete ──────────────────────────────────────────────
 const searchInput = document.getElementById('pokeSearch');
 const autoList    = document.getElementById('autoList');
+let   activeIdx   = -1;
 
-function spriteUrl(name) {
-  return `https://img.pokemondb.net/sprites/sword-shield/icon/${name}.png`;
+function spriteUrl(n)     { return `https://img.pokemondb.net/sprites/sword-shield/icon/${n}.png`; }
+function walkSpriteUrl(n) {
+  const DEX = {bulbasaur:1,ivysaur:2,venusaur:3,charmander:4,charmeleon:5,charizard:6,squirtle:7,wartortle:8,blastoise:9,caterpie:10,pikachu:25,raichu:26,eevee:133,vaporeon:134,jolteon:135,flareon:136,espeon:196,umbreon:197,leafeon:470,glaceon:471,sylveon:700,mewtwo:150,mew:151,gengar:94,snorlax:143,dragonite:149,tyranitar:248,lucario:448,garchomp:445,greninja:658,mimikyu:778,rayquaza:384,lugia:249,'ho-oh':250,dialga:483,palkia:484,giratina:487,arceus:493,zekrom:644,reshiram:643,articuno:144,zapdos:145,moltres:146,togekiss:468};
+  const id = DEX[n.toLowerCase()] || 1;
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${id}.gif`;
 }
-
-let activeIdx = -1;
 
 searchInput.addEventListener('input', () => {
   const q = searchInput.value.trim().toLowerCase();
   activeIdx = -1;
   if (!q) { autoList.classList.remove('open'); return; }
-  const matches = allPokemon
-    .filter(n => n.includes(q))
-    .sort((a, b) => (a.startsWith(q) ? -1 : b.startsWith(q) ? 1 : 0))
-    .slice(0, 20);
-  if (!matches.length) { autoList.classList.remove('open'); return; }
-  autoList.innerHTML = matches.map(name =>
-    `<div class="autocomplete-item" data-name="${name}">
-       <img class="poke-sprite" src="${spriteUrl(name)}" onerror="this.style.display='none'" alt="">
-       <span>${capitalize(name)}</span>
-     </div>`
-  ).join('');
+  const m = allPokemon.filter(n=>n.includes(q))
+    .sort((a,b)=> a.startsWith(q)?-1:b.startsWith(q)?1:0).slice(0,20);
+  if (!m.length) { autoList.classList.remove('open'); return; }
+  autoList.innerHTML = m.map(n =>
+    `<div class="autocomplete-item" data-name="${n}">
+       <img class="poke-sprite" src="${spriteUrl(n)}" onerror="this.style.display='none'" alt="">
+       <span>${cap(n)}</span>
+     </div>`).join('');
   autoList.classList.add('open');
 });
-
 autoList.addEventListener('click', e => {
   const item = e.target.closest('.autocomplete-item');
-  if (!item) return;
-  selectPokemon(item.dataset.name);
+  if (item) selectPokemon(item.dataset.name);
 });
-
 searchInput.addEventListener('keydown', e => {
   const items = autoList.querySelectorAll('.autocomplete-item');
-  if (e.key === 'ArrowDown') { activeIdx = Math.min(activeIdx+1, items.length-1); highlightItem(items); e.preventDefault(); }
-  if (e.key === 'ArrowUp')   { activeIdx = Math.max(activeIdx-1, 0);              highlightItem(items); e.preventDefault(); }
-  if (e.key === 'Enter' && activeIdx >= 0) items[activeIdx].click();
-  if (e.key === 'Escape') autoList.classList.remove('open');
+  if (e.key==='ArrowDown') { activeIdx=Math.min(activeIdx+1,items.length-1); hi(items); e.preventDefault(); }
+  if (e.key==='ArrowUp')   { activeIdx=Math.max(activeIdx-1,0); hi(items); e.preventDefault(); }
+  if (e.key==='Enter' && activeIdx>=0) items[activeIdx].click();
+  if (e.key==='Escape') autoList.classList.remove('open');
 });
-
-function highlightItem(items) {
-  items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
-  if (activeIdx >= 0) items[activeIdx].scrollIntoView({ block: 'nearest' });
+function hi(items) {
+  items.forEach((el,i)=>el.classList.toggle('active',i===activeIdx));
+  if (activeIdx>=0) items[activeIdx].scrollIntoView({block:'nearest'});
 }
+document.addEventListener('click', e => { if (!e.target.closest('.search-wrap')) autoList.classList.remove('open'); });
 
-document.addEventListener('click', e => {
-  if (!e.target.closest('.search-wrap')) autoList.classList.remove('open');
-});
-
-// ─────────────────────────────────────────────
-//  CARD FETCHING  — 3-tier fallback system
-//
-//  Tier 1: pokemontcg.io  (best data, may rate-limit without key)
-//  Tier 2: tcgdex.net     (European mirror, no key needed)
-//  Tier 3: Built-in stub  (always works — shows image via TCGdex CDN)
-// ─────────────────────────────────────────────
-
-async function fetchCardsTier1(name) {
-  // pokemontcg.io — exact name match, returns rich data
+// ── Card fetch — Tier 1 ───────────────────────────────────────
+async function fetchTier1(name) {
   const url = `https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(name)}"&pageSize=250&select=id,name,number,set,images`;
-  const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  lastUrls['tier1'] = url; renderUrls();
+  dbgLog(`[Tier1] GET ${url}`, 'info');
+  const r = await fetch(url, {headers:{'Accept':'application/json'}});
+  if (!r.ok) { dbgLog(`[Tier1] HTTP ${r.status}`, 'error'); throw new Error(`HTTP ${r.status}`); }
   const d = await r.json();
-  const cards = d.data || [];
-  if (!cards.length) throw new Error('No cards returned');
-  return cards.map(c => ({
-    id:       c.id,
-    name:     c.name,
-    number:   c.number,
-    setName:  c.set?.name  || '?',
-    setId:    c.set?.id    || '',
-    imageUrl: c.images?.large || c.images?.small || '',
-    imageSmall: c.images?.small || '',
-    source:   'tier1',
-  })).sort((a,b) => a.setName.localeCompare(b.setName));
+  if (!(d.data||[]).length) { dbgLog('[Tier1] 0 cards', 'warn'); throw new Error('0 cards'); }
+  dbgLog(`[Tier1] ✓ ${d.data.length} cards`, 'ok'); setTierStatus('tier1','ok');
+  return d.data.map(c=>({
+    id:c.id, name:c.name, number:c.number,
+    setName:c.set?.name||'', setId:c.set?.id||'',
+    imageUrl:c.images?.large||c.images?.small||'',
+    imageSmall:c.images?.small||c.images?.large||'',
+    source:'tier1',
+  })).sort((a,b)=>(a.setName).localeCompare(b.setName));
 }
 
-async function fetchCardsTier2(name) {
-  // tcgdex.net — free, CORS-friendly, good coverage
-  // Search endpoint returns array of card stubs; we enrich with set info
-  const searchName = name.toLowerCase().replace(/-/g, ' ');
-  const url = `https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(searchName)}`;
+// ── Card fetch — Tier 2 ───────────────────────────────────────
+async function fetchTier2(name) {
+  const q = name.toLowerCase().replace(/-/g,' ');
+  const url = `https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(q)}`;
+  lastUrls['tier2'] = url; renderUrls();
+  dbgLog(`[Tier2] GET ${url}`, 'info');
   const r = await fetch(url);
-  if (!r.ok) throw new Error(`TCGdex HTTP ${r.status}`);
+  if (!r.ok) { dbgLog(`[Tier2] HTTP ${r.status}`, 'error'); throw new Error(`HTTP ${r.status}`); }
   const cards = await r.json();
-  if (!Array.isArray(cards) || !cards.length) throw new Error('No cards');
-  return cards.map(c => {
-    const imgBase = c.image
-      ? `${c.image}/high.webp`
-      : `https://assets.tcgdex.net/en/${c.set?.id || 'unknown'}/${c.localId || c.id}/high.webp`;
-    return {
-      id:         `tcgdex-${c.id}`,
-      name:       c.name || name,
-      number:     c.localId || c.id,
-      setName:    c.set?.name || c.set?.id || 'Unknown Set',
-      setId:      c.set?.id || '',
-      imageUrl:   imgBase,
-      imageSmall: imgBase,
-      source:     'tier2',
-    };
-  }).sort((a,b) => a.setName.localeCompare(b.setName));
+  if (!Array.isArray(cards)||!cards.length) { dbgLog('[Tier2] 0 cards', 'warn'); throw new Error('0 cards'); }
+  dbgLog(`[Tier2] ✓ ${cards.length} cards`, 'ok'); setTierStatus('tier2','ok');
+  return cards.map(c=>({
+    id:`tcgdex-${c.id}`, name:c.name||cap(name), number:c.localId||c.id,
+    setName:c.set?.name||c.set?.id||'', setId:c.set?.id||'',
+    imageUrl:  c.image?`${c.image}/high.webp`:'',
+    imageSmall:c.image?`${c.image}/high.webp`:'',
+    source:'tier2',
+  })).sort((a,b)=>a.setName.localeCompare(b.setName));
 }
 
-function buildFallbackCards(name) {
-  // Tier 3: We know the TCGdex URL pattern so we can synthesise
-  // a handful of real cards for the most popular Pokémon.
-  // This is a last resort that always gives *something* to push.
-  const capitalized = capitalize(name);
-  // Map of pokémon → [{ set, setName, num }]
+// ── Card fetch — Tier 3 (stubs) ───────────────────────────────
+function fetchTier3(name) {
+  lastUrls['tier3'] = '(no network — built-in stub data)'; renderUrls();
+  dbgLog('[Tier3] Using stub cards', 'warn'); setTierStatus('tier3','ok');
   const KNOWN = {
-    pikachu:    [{set:'base1',setName:'Base Set',num:'58'},{set:'swsh1',setName:'Sword & Shield',num:'057'},{set:'sv1',setName:'Scarlet & Violet',num:'081'}],
-    charizard:  [{set:'base1',setName:'Base Set',num:'4'},{set:'swsh35',setName:'Champion\'s Path',num:'074'},{set:'sv3pt5',setName:'151',num:'006'}],
-    mewtwo:     [{set:'base1',setName:'Base Set',num:'10'},{set:'sv3pt5',setName:'151',num:'150'},{set:'swsh9',setName:'Brilliant Stars',num:'057'}],
-    eevee:      [{set:'base1',setName:'Base Set',num:'51'},{set:'sm35',setName:'McDonald\'s 2018',num:'5'},{set:'sv1',setName:'Scarlet & Violet',num:'129'}],
-    gengar:     [{set:'base1',setName:'Base Set',num:'5'},{set:'sv3pt5',setName:'151',num:'094'}],
-    lucario:    [{set:'dp2',setName:'Mysterious Treasures',num:'12'},{set:'swsh10',setName:'Astral Radiance',num:'079'}],
-    greninja:   [{set:'xy6',setName:'Breakthrough',num:'41'},{set:'sm115',setName:'Hidden Fates',num:'SV61'}],
-    rayquaza:   [{set:'ex7',setName:'Team Magma vs Team Aqua',num:'97'},{set:'swsh7',setName:'Evolving Skies',num:'110'}],
-    ogerpon:    [{set:'sv5',setName:'Temporal Forces',num:'016'},{set:'sv8pt5',setName:'Prismatic Evolutions',num:'012'}],
+    pikachu:   [{set:'base1',num:'58'},{set:'swsh1',num:'057'},{set:'sv1',num:'081'}],
+    charizard: [{set:'base1',num:'4'},{set:'sv3pt5',num:'006'}],
+    mewtwo:    [{set:'base1',num:'10'},{set:'sv3pt5',num:'150'}],
+    eevee:     [{set:'base1',num:'51'},{set:'sv1',num:'129'}],
+    gengar:    [{set:'base1',num:'5'},{set:'sv3pt5',num:'094'}],
+    lucario:   [{set:'dp2',num:'12'},{set:'swsh10',num:'079'}],
+    greninja:  [{set:'xy6',num:'41'}],
+    rayquaza:  [{set:'ex7',num:'97'},{set:'swsh7',num:'110'}],
+    ogerpon:   [{set:'sv5',num:'016'},{set:'sv8pt5',num:'012'}],
   };
   const known = KNOWN[name.toLowerCase()];
-  if (known) {
-    return known.map(k => ({
-      id:         `stub-${k.set}-${k.num}`,
-      name:       capitalized,
-      number:     k.num,
-      setName:    k.setName,
-      setId:      k.set,
-      imageUrl:   `https://assets.tcgdex.net/en/${k.set}/${k.num}/high.webp`,
-      imageSmall: `https://assets.tcgdex.net/en/${k.set}/${k.num}/high.webp`,
-      source:     'tier3',
-    }));
-  }
-  // Ultimate fallback: one generic entry pointing at TCGdex search page
-  return [{
-    id:         `stub-${name}-001`,
-    name:       capitalized,
-    number:     '?',
-    setName:    'API unavailable — try again',
-    setId:      '',
-    imageUrl:   '',
-    imageSmall: '',
-    source:     'tier3-empty',
-  }];
+  if (known) return known.map(k=>({
+    id:`stub-${k.set}-${k.num}`, name:cap(name), number:k.num,
+    setName:k.set, setId:k.set,
+    imageUrl:`https://assets.tcgdex.net/en/${k.set}/${k.num}/high.webp`,
+    imageSmall:`https://assets.tcgdex.net/en/${k.set}/${k.num}/high.webp`,
+    source:'tier3',
+  }));
+  return [{id:'stub-empty',name:cap(name),number:'?',setName:'',setId:'',imageUrl:'',imageSmall:'',source:'tier3-empty'}];
 }
 
-async function fetchCardsWithFallback(name) {
-  // Try Tier 1
-  try {
-    const cards = await fetchCardsTier1(name);
-    console.log(`[Tier 1] Got ${cards.length} cards for ${name}`);
-    return { cards, tier: 1 };
-  } catch(e) {
-    console.warn('[Tier 1] Failed:', e.message);
+// ── Fetch with fallback (respects tierOrder from debug panel) ─
+async function fetchCards(name) {
+  tierOrder.forEach(t=>setTierStatus(t,'pending'));
+  for (const tid of tierOrder) {
+    try {
+      let cards;
+      if      (tid==='tier1') cards = await fetchTier1(name);
+      else if (tid==='tier2') cards = await fetchTier2(name);
+      else                    cards = fetchTier3(name);
+      return {cards, tier:tid};
+    } catch(e) {
+      setTierStatus(tid,'fail');
+      dbgLog(`${tid} failed: ${e.message}`, 'error');
+    }
   }
-  // Try Tier 2
-  try {
-    const cards = await fetchCardsTier2(name);
-    console.log(`[Tier 2] Got ${cards.length} cards for ${name}`);
-    return { cards, tier: 2 };
-  } catch(e) {
-    console.warn('[Tier 2] Failed:', e.message);
-  }
-  // Tier 3 always works
-  const cards = buildFallbackCards(name);
-  console.log(`[Tier 3] Using ${cards.length} stub card(s) for ${name}`);
-  return { cards, tier: 3 };
+  return {cards: fetchTier3(name), tier:'tier3'};
 }
 
-// ─────────────────────────────────────────────
-//  SELECT POKEMON → load cards
-// ─────────────────────────────────────────────
+// ── Select Pokémon ────────────────────────────────────────────
 async function selectPokemon(name) {
   selectedPokemon = name;
-  selectedCard    = null;
-  searchInput.value = capitalize(name);
+  cardIdx = 0;
+  searchInput.value = cap(name);
   autoList.classList.remove('open');
-
-  const cardSelect = document.getElementById('cardSelect');
-  cardSelect.disabled = true;
-  cardSelect.innerHTML = '<option>Loading cards…</option>';
-  resetPreview();
+  document.getElementById('prevBtn').disabled = true;
+  document.getElementById('nextBtn').disabled = true;
+  document.getElementById('cardSelect').disabled = true;
+  document.getElementById('cardSelect').innerHTML = '<option>Loading…</option>';
   document.getElementById('pushBtn').disabled = true;
-  showStatus('Fetching cards…', 'loading', true);
+  showPlaceholder();
+  document.getElementById('cardCounter').textContent = '— / —';
+  showStatus('Fetching cards…','loading',true);
+  document.getElementById('walkSprite').src = walkSpriteUrl(name);
 
-  const { cards, tier } = await fetchCardsWithFallback(name);
+  const {cards, tier} = await fetchCards(name);
   allCards = cards;
 
-  if (!allCards.length || (allCards.length === 1 && allCards[0].source === 'tier3-empty')) {
-    cardSelect.innerHTML = '<option value="">No cards found — API may be down</option>';
-    showStatus('⚠ No cards found. Try a different Pokémon or try again later.', 'error');
+  if (!allCards.length || allCards[0].source==='tier3-empty') {
+    document.getElementById('cardSelect').innerHTML = '<option value="">No cards found</option>';
+    showStatus('⚠ No cards found. Try another Pokémon.','error');
     return;
   }
 
-  cardSelect.innerHTML = '<option value="">— select a card —</option>' +
-    allCards.map(c =>
-      `<option value="${c.id}">${c.setName} · #${c.number}</option>`
-    ).join('');
-  cardSelect.disabled = false;
+  // Dropdown: just "Pokémon Name #number" — no set info
+  document.getElementById('cardSelect').innerHTML =
+    allCards.map((c,i)=>`<option value="${i}">${cap(name)} #${c.number}</option>`).join('');
+  document.getElementById('cardSelect').disabled = false;
 
-  const tierMsg = tier === 1 ? '' : tier === 2 ? ' (via backup API)' : ' (limited data)';
-  showStatus(`Found ${allCards.length} card${allCards.length !== 1 ? 's' : ''}${tierMsg} ✓`, 'success');
-  setTimeout(() => document.getElementById('statusMsg').classList.remove('show'), 3000);
+  showCardAt(0);
+
+  const src = tier==='tier1'?'pokemontcg.io':tier==='tier2'?'tcgdex.net':'built-in stubs';
+  showStatus(`${allCards.length} card${allCards.length!==1?'s':''} via ${src} ✓`, 'success');
+  setTimeout(()=>document.getElementById('statusMsg').classList.remove('show'), 3000);
 }
 
-// ─────────────────────────────────────────────
-//  CARD SELECT → show preview
-// ─────────────────────────────────────────────
-document.getElementById('cardSelect').addEventListener('change', e => {
-  const id = e.target.value;
-  if (!id) { resetPreview(); document.getElementById('pushBtn').disabled = true; return; }
-
-  selectedCard = allCards.find(c => c.id === id);
-  if (!selectedCard) return;
-
-  const preview = document.getElementById('cardPreview');
-  preview.classList.add('has-card');
-
-  const imgHtml = selectedCard.imageSmall
-    ? `<img class="card-thumb" src="${selectedCard.imageSmall}" alt="${selectedCard.name}" loading="lazy" onerror="this.style.opacity='0.3'">`
-    : `<div class="card-thumb-placeholder">🃏</div>`;
-
-  preview.innerHTML = `
-    ${imgHtml}
-    <div class="card-info">
-      <div class="card-name">${selectedCard.name}</div>
-      <div class="card-set">${selectedCard.setName}</div>
-      <div class="card-number">#${selectedCard.number}</div>
-    </div>
-  `;
+// ── Card viewer ───────────────────────────────────────────────
+function showCardAt(idx) {
+  cardIdx = Math.max(0, Math.min(idx, allCards.length-1));
+  const card = allCards[cardIdx];
+  const wrap = document.getElementById('cardImgWrap');
+  wrap.innerHTML = '';
+  wrap.classList.remove('loaded');
+  if (card.imageSmall||card.imageUrl) {
+    const img = document.createElement('img');
+    img.src = card.imageSmall || card.imageUrl;
+    img.alt = card.name;
+    img.onerror = ()=>{ wrap.innerHTML='<span class="card-placeholder-icon">🃏</span>'; };
+    img.onload  = ()=> wrap.classList.add('loaded');
+    wrap.appendChild(img);
+  } else {
+    wrap.innerHTML = '<span class="card-placeholder-icon">🃏</span>';
+  }
+  document.getElementById('cardCounter').textContent = `${cardIdx+1} / ${allCards.length}`;
+  document.getElementById('cardSelect').selectedIndex = cardIdx;
+  document.getElementById('prevBtn').disabled = cardIdx===0;
+  document.getElementById('nextBtn').disabled = cardIdx===allCards.length-1;
   document.getElementById('pushBtn').disabled = false;
+}
+
+function showPlaceholder() {
+  const wrap = document.getElementById('cardImgWrap');
+  wrap.classList.remove('loaded');
+  wrap.innerHTML = '<span class="card-placeholder-icon">🃏</span>';
+}
+
+document.getElementById('prevBtn').addEventListener('click', ()=> showCardAt(cardIdx-1));
+document.getElementById('nextBtn').addEventListener('click', ()=> showCardAt(cardIdx+1));
+document.getElementById('cardSelect').addEventListener('change', e=>{
+  const i = parseInt(e.target.value);
+  if (!isNaN(i)) showCardAt(i);
 });
 
-function resetPreview() {
-  const preview = document.getElementById('cardPreview');
-  preview.classList.remove('has-card');
-  preview.innerHTML = `
-    <div class="card-thumb-placeholder">🃏</div>
-    <div class="card-info">
-      <div class="card-name" style="color:var(--muted)">No card selected</div>
-      <div class="card-set">Select a Pokémon and card above</div>
-    </div>
-  `;
-}
-
-// ─────────────────────────────────────────────
-//  PUSH TO FIREBASE  (credentials baked in)
-// ─────────────────────────────────────────────
-document.getElementById('pushBtn').addEventListener('click', async () => {
-  if (!selectedCard) return;
-
+// ── Push to Firebase ──────────────────────────────────────────
+document.getElementById('pushBtn').addEventListener('click', async ()=>{
+  const card = allCards[cardIdx];
+  if (!card) return;
   const btn = document.getElementById('pushBtn');
   btn.disabled = true;
   btn.classList.add('sending');
-  btn.textContent = '⏳ SENDING...';
-  showStatus('Pushing to display…', 'loading', true);
-
-  // Ripple effect
-  const rect   = btn.getBoundingClientRect();
-  const ripple = document.createElement('span');
-  ripple.className = 'btn-ripple';
-  ripple.style.cssText = `width:${rect.width}px;height:${rect.width}px;left:0;top:${(rect.height - rect.width) / 2}px`;
-  btn.appendChild(ripple);
-  setTimeout(() => ripple.remove(), 600);
-
+  startWalk(selectedPokemon);
+  showStatus('Sending to display…','loading',true);
   try {
-    await setDoc(doc(db, 'display', 'current'), {
-      cardId:     selectedCard.id,
-      cardName:   selectedCard.name,
-      setName:    selectedCard.setName,
-      imageUrl:   selectedCard.imageUrl,
-      imageSmall: selectedCard.imageSmall,
-      pokemon:    selectedPokemon,
-      number:     selectedCard.number,
-      pushedAt:   new Date().toISOString(),
+    await setDoc(doc(db,'display','current'), {
+      cardId:card.id, cardName:card.name, setName:card.setName,
+      imageUrl:card.imageUrl, imageSmall:card.imageSmall,
+      pokemon:selectedPokemon, number:card.number,
+      pushedAt:new Date().toISOString(),
     });
-
-    showStatus(`⚡ "${selectedCard.name}" sent to your display!`, 'success');
-    btn.textContent = '✓ PUSHED!';
-    setTimeout(() => {
-      btn.textContent = '▶ PUSH TO DISPLAY';
-      btn.disabled = false;
-      btn.classList.remove('sending');
-    }, 2500);
-
+    dbgLog(`Firebase OK: ${card.name} #${card.number}`, 'ok');
+    stopWalk(true);
+    showStatus('⚡ Sent to your display!','success');
+    setTimeout(()=>{ btn.classList.remove('sending'); btn.disabled=false; }, 1400);
   } catch(err) {
-    console.error(err);
-    showStatus('Firebase error: ' + err.message, 'error');
-    btn.textContent = '▶ PUSH TO DISPLAY';
-    btn.disabled = false;
-    btn.classList.remove('sending');
+    dbgLog('Firebase error: '+err.message, 'error');
+    stopWalk(false);
+    showStatus('Firebase error: '+err.message,'error');
+    btn.classList.remove('sending'); btn.disabled=false;
   }
 });
 
-// ─────────────────────────────────────────────
-//  HELPERS
-// ─────────────────────────────────────────────
-function capitalize(s) {
-  return s.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('-');
+// ── Walk animation ────────────────────────────────────────────
+let walkTimer=null, walkPct=0;
+function startWalk(name) {
+  walkPct = 0;
+  document.getElementById('walkSprite').src = walkSpriteUrl(name);
+  document.getElementById('walkFill').style.width   = '0%';
+  document.getElementById('walkSprite').style.left  = '0%';
+  clearInterval(walkTimer);
+  walkTimer = setInterval(()=>{
+    walkPct = Math.min(walkPct + 2.2, 88);
+    document.getElementById('walkFill').style.width  = walkPct+'%';
+    document.getElementById('walkSprite').style.left = walkPct+'%';
+    if (walkPct>=88) clearInterval(walkTimer);
+  }, 40);
+}
+function stopWalk(success) {
+  clearInterval(walkTimer);
+  if (success) {
+    const s = document.getElementById('walkSprite');
+    const f = document.getElementById('walkFill');
+    s.style.transition = 'left 0.3s ease';
+    f.style.transition = 'width 0.3s ease';
+    s.style.left = '95%'; f.style.width = '100%';
+    setTimeout(()=>{ s.style.transition=''; f.style.transition=''; },350);
+  }
 }
 
-function showStatus(msg, type, spinner = false) {
+// ── Helpers ───────────────────────────────────────────────────
+function cap(s) { return s.split('-').map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join('-'); }
+function showStatus(msg, type, spinner=false) {
   const el = document.getElementById('statusMsg');
   el.className = `status show ${type}`;
-  el.innerHTML = spinner
-    ? `<div class="spinner"></div><span>${msg}</span>`
-    : `<span>${msg}</span>`;
+  el.innerHTML = spinner ? `<div class="spinner"></div><span>${msg}</span>` : `<span>${msg}</span>`;
 }
 </script>
 </body>
