@@ -241,6 +241,8 @@ select option { background: var(--surface2); color: var(--text); }
 .t1 { background: rgba(64,192,87,0.18); color: var(--success); }
 .t2 { background: rgba(59,91,219,0.18); color: #7b97ff; }
 .t3 { background: rgba(255,203,5,0.12); color: var(--accent); }
+.t4 { background: rgba(250,82,82,0.12); color: #ff8787; }
+.t5 { background: rgba(180,180,180,0.1); color: #aaa; }
 .tier-name { flex: 1; color: #bbb; font-size: 10px; line-height: 1.4; }
 .tier-sub  { color: #555; font-size: 9px; }
 .tier-status {
@@ -379,7 +381,7 @@ footer a { color: var(--muted); }
 import { initializeApp }             from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// ── Firebase (credentials baked in) ──────────────────────────
+// ── Firebase ──────────────────────────────────────────────────
 const firebaseApp = initializeApp({
   apiKey:            "AIzaSyCrn8gIBWdM3OuLuxVzn-oMLDc4iCXbJ9w",
   authDomain:        "pkmncarddisplay.firebaseapp.com",
@@ -396,16 +398,23 @@ let selectedPokemon = null;
 let allCards        = [];
 let cardIdx         = 0;
 
+// dexCache: name → dex number, fetched dynamically from PokeAPI
+const dexCache = {};
+
 // ══════════════════════════════════════════════════════════════
 // ── DEBUG ONLY ── remove this section for production
 // ══════════════════════════════════════════════════════════════
 const TIER_META = {
-  tier1: { label:'pokemontcg.io',  cls:'t1', desc:'Best data, may rate-limit without key' },
-  tier2: { label:'api.tcgdex.net', cls:'t2', desc:'EU mirror, no key required'            },
-  tier3: { label:'Built-in stubs', cls:'t3', desc:'Always works, limited card list'       },
+  tier1: { label:'pokemontcg.io',        cls:'t1', desc:'Best data, needs free API key for reliability' },
+  tier2: { label:'api.tcgdex.net',       cls:'t2', desc:'EU mirror, no key, ~70% reliable'             },
+  tier3: { label:'tcgdex set endpoint',  cls:'t3', desc:'Alternative tcgdex query path'                },
+  tier4: { label:'pokémon DB images',    cls:'t4', desc:'PokémonDB card image CDN probe'               },
+  tier5: { label:'Built-in stubs',       cls:'t5', desc:'Always works, limited to popular Pokémon'     },
 };
-let tierOrder    = ['tier1','tier2','tier3'];
-let tierStatuses = { tier1:'pending', tier2:'pending', tier3:'pending' };
+const TIER_BADGE_COLORS = { t1:'rgba(64,192,87,0.18)',t2:'rgba(59,91,219,0.18)',t3:'rgba(255,203,5,0.12)',t4:'rgba(250,82,82,0.12)',t5:'rgba(180,180,180,0.1)' };
+const TIER_TEXT_COLORS  = { t1:'#40c057',t2:'#7b97ff',t3:'#ffcb05',t4:'#ff8787',t5:'#aaa' };
+let tierOrder    = ['tier1','tier2','tier3','tier4','tier5'];
+let tierStatuses = Object.fromEntries(tierOrder.map(t=>[t,'pending']));
 let lastUrls     = {};
 let dragSrc      = null;
 const logEntries = [];
@@ -418,12 +427,12 @@ function renderTierList() {
     const m  = TIER_META[tid];
     const st = tierStatuses[tid];
     const el = document.createElement('div');
-    el.className   = 'tier-item';
-    el.draggable   = true;
+    el.className    = 'tier-item';
+    el.draggable    = true;
     el.dataset.tier = tid;
     el.innerHTML = `
       <span class="tier-handle">⠿</span>
-      <span class="tier-badge ${m.cls}">${i+1}</span>
+      <span class="tier-badge ${m.cls}" style="background:${TIER_BADGE_COLORS[m.cls]};color:${TIER_TEXT_COLORS[m.cls]}">${i+1}</span>
       <span class="tier-name">${m.label}<br><span class="tier-sub">${m.desc}</span></span>
       <span class="tier-status ${st}" id="ts-${tid}">${st}</span>
     `;
@@ -462,7 +471,7 @@ function dbgLog(msg, level='info') {
   const now = new Date();
   const t = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
   logEntries.unshift({msg,level,t});
-  if (logEntries.length>80) logEntries.pop();
+  if (logEntries.length > 100) logEntries.pop();
   renderLog();
   console[level==='error'?'error':level==='warn'?'warn':'log'](`[${level}] ${msg}`);
 }
@@ -483,27 +492,77 @@ document.getElementById('clearLog')?.addEventListener('click', () => { logEntrie
 renderTierList();
 // ── END DEBUG ONLY ────────────────────────────────────────────
 
+// ── Dex number lookup (all generations, dynamic) ──────────────
+// Fetches from PokeAPI once per name, caches result.
+// Falls back to sprite URL that uses name directly if lookup fails.
+async function getDexId(name) {
+  const key = name.toLowerCase();
+  if (dexCache[key]) return dexCache[key];
+  try {
+    const r = await fetch(`https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(key)}`);
+    if (!r.ok) throw new Error(`${r.status}`);
+    const d = await r.json();
+    dexCache[key] = d.id;
+    dbgLog(`Dex lookup: ${name} → #${d.id}`, 'ok');
+    return d.id;
+  } catch(e) {
+    dbgLog(`Dex lookup failed for ${name}: ${e.message}`, 'warn');
+    return null;
+  }
+}
+
+// Returns animated Gen5 sprite URL for the walk animation.
+// Uses dex ID when available (all gens), falls back to name-based sprite.
+async function resolveWalkSprite(name) {
+  const id = await getDexId(name);
+  if (id) {
+    // Gen V animated sprites exist for IDs 1–649 (Gen 1–5)
+    if (id <= 649) {
+      return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${id}.gif`;
+    }
+    // Gen 6+ don't have Gen V animated sprites — use official artwork instead
+    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
+  }
+  // Last resort: pokemondb icon (always has something)
+  return `https://img.pokemondb.net/sprites/sword-shield/icon/${name.toLowerCase()}.png`;
+}
+
+// Sprite URL for autocomplete dropdown (fast, no API call)
+function spriteUrl(n) { return `https://img.pokemondb.net/sprites/sword-shield/icon/${n}.png`; }
+
 // ── Pokémon list ──────────────────────────────────────────────
 async function loadPokemonList() {
   try {
-    dbgLog('Loading Pokémon list…');
-    const r = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1025');
+    dbgLog('Loading Pokémon list from PokeAPI…');
+    // Fetch all 1025+ Pokémon names
+    const r = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1302');
     const d = await r.json();
     allPokemon = d.results.map(p => p.name);
     dbgLog(`Pokémon list OK — ${allPokemon.length} entries`, 'ok');
   } catch(e) {
     dbgLog('PokeAPI list failed, using built-in: '+e.message, 'warn');
+    // Expanded fallback covering all gens roughly
     allPokemon = [
-      'bulbasaur','ivysaur','venusaur','charmander','charmeleon','charizard',
-      'squirtle','wartortle','blastoise','pikachu','raichu','eevee','vaporeon',
-      'jolteon','flareon','espeon','umbreon','leafeon','glaceon','sylveon',
-      'mewtwo','mew','gengar','snorlax','dragonite','tyranitar','lucario',
-      'garchomp','greninja','mimikyu','dragapult','ogerpon','terapagos',
-      'rayquaza','lugia','ho-oh','celebi','kyogre','groudon','dialga',
-      'palkia','giratina','arceus','zekrom','reshiram','xerneas','yveltal',
-      'solgaleo','lunala','zacian','zamazenta','calyrex','koraidon','miraidon',
-      'alakazam','machamp','arcanine','haunter','electabuzz','lapras','ditto',
-      'articuno','zapdos','moltres','togekiss','garchomp',
+      'bulbasaur','ivysaur','venusaur','charmander','charmeleon','charizard','squirtle','wartortle','blastoise',
+      'pikachu','raichu','eevee','vaporeon','jolteon','flareon','espeon','umbreon','leafeon','glaceon','sylveon',
+      'mewtwo','mew','gengar','snorlax','dragonite','lapras','ditto','articuno','zapdos','moltres',
+      'chikorita','cyndaquil','totodile','typhlosion','feraligatr','togekiss','bellossom','heracross',
+      'scizor','tyranitar','lugia','ho-oh','celebi',
+      'treecko','torchic','mudkip','sceptile','blaziken','swampert','gardevoir','slaking','aggron',
+      'flygon','salamence','metagross','regirock','regice','registeel','latias','latios','kyogre','groudon','rayquaza','jirachi','deoxys',
+      'turtwig','chimchar','piplup','torterra','infernape','empoleon','lucario','garchomp','weavile',
+      'magnezone','togekiss','leafeon','glaceon','mamoswine','dialga','palkia','heatran','giratina','arceus','manaphy',
+      'snivy','tepig','oshawott','serperior','emboar','samurott','excadrill','zoroark','reuniclus',
+      'vanilluxe','chandelure','haxorus','cubchoo','cryogonal','golurk','hydreigon','volcarona',
+      'reshiram','zekrom','kyurem','keldeo','meloetta','genesect',
+      'chespin','fennekin','froakie','delphox','greninja','talonflame','sylveon','aegislash','tyrantrum',
+      'goodra','noivern','xerneas','yveltal','zygarde','diancie','hoopa','volcanion',
+      'rowlet','litten','popplio','decidueye','incineroar','primarina','wishiwashi','toxapex','kommo-o',
+      'lunala','solgaleo','necrozma','marshadow','zeraora',
+      'grookey','scorbunny','sobble','rillaboom','cinderace','inteleon','corviknight','dragapult',
+      'zacian','zamazenta','eternatus','calyrex','zarude',
+      'sprigatito','fuecoco','quaxly','meowscarada','skeledirge','quaquaval','garganacl','clodsire',
+      'annihilape','kingambit','gholdengo','iron-valiant','roaring-moon','ogerpon','terapagos','koraidon','miraidon',
     ];
   }
 }
@@ -513,13 +572,6 @@ loadPokemonList();
 const searchInput = document.getElementById('pokeSearch');
 const autoList    = document.getElementById('autoList');
 let   activeIdx   = -1;
-
-function spriteUrl(n)     { return `https://img.pokemondb.net/sprites/sword-shield/icon/${n}.png`; }
-function walkSpriteUrl(n) {
-  const DEX = {bulbasaur:1,ivysaur:2,venusaur:3,charmander:4,charmeleon:5,charizard:6,squirtle:7,wartortle:8,blastoise:9,caterpie:10,pikachu:25,raichu:26,eevee:133,vaporeon:134,jolteon:135,flareon:136,espeon:196,umbreon:197,leafeon:470,glaceon:471,sylveon:700,mewtwo:150,mew:151,gengar:94,snorlax:143,dragonite:149,tyranitar:248,lucario:448,garchomp:445,greninja:658,mimikyu:778,rayquaza:384,lugia:249,'ho-oh':250,dialga:483,palkia:484,giratina:487,arceus:493,zekrom:644,reshiram:643,articuno:144,zapdos:145,moltres:146,togekiss:468};
-  const id = DEX[n.toLowerCase()] || 1;
-  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${id}.gif`;
-}
 
 searchInput.addEventListener('input', () => {
   const q = searchInput.value.trim().toLowerCase();
@@ -552,26 +604,68 @@ function hi(items) {
 }
 document.addEventListener('click', e => { if (!e.target.closest('.search-wrap')) autoList.classList.remove('open'); });
 
-// ── Card fetch — Tier 1 ───────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// CARD FETCHING — 5-tier system with image probing
+//
+// Tier 1: pokemontcg.io          — richest data, free key = reliable
+// Tier 2: api.tcgdex.net         — EU mirror, no key, ~70% reliable
+// Tier 3: api.tcgdex.net (alt)   — tcgdex Pokémon endpoint (different path)
+// Tier 4: pokemondb image probe  — generates URLs from name+number patterns
+// Tier 5: built-in stubs         — always works for popular Pokémon
+//
+// After loading cards, we probe the first card's image. If it 404s,
+// we advance through the list until we find one that actually loads.
+// ═══════════════════════════════════════════════════════════════
+
+// Quick image probe — resolves true/false, never throws
+function probeImage(url) {
+  return new Promise(resolve => {
+    if (!url) return resolve(false);
+    const img = new Image();
+    img.onload  = () => resolve(true);
+    img.onerror = () => resolve(false);
+    // Timeout after 4s — treat as failed
+    const t = setTimeout(() => { img.src=''; resolve(false); }, 4000);
+    img.onload = img.onerror = (e) => { clearTimeout(t); resolve(e.type==='load'); };
+    img.src = url;
+  });
+}
+
+// After loading cards, find the first index whose image actually loads.
+// Checks in batches of 3 so it's fast but not overwhelming.
+async function findFirstLoadableCard(cards) {
+  dbgLog(`Probing images for first loadable card (${cards.length} total)…`, 'info');
+  for (let i = 0; i < Math.min(cards.length, 15); i++) {
+    const url = cards[i].imageSmall || cards[i].imageUrl;
+    const ok  = await probeImage(url);
+    if (ok) { dbgLog(`First loadable card: index ${i} (${url.slice(-40)})`, 'ok'); return i; }
+    else      dbgLog(`Image probe failed at index ${i}`, 'warn');
+  }
+  // Give up probing, just show index 0 (user can arrow through)
+  dbgLog('Image probe exhausted — showing index 0 anyway', 'warn');
+  return 0;
+}
+
+// ── Tier 1: pokemontcg.io ─────────────────────────────────────
 async function fetchTier1(name) {
   const url = `https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(name)}"&pageSize=250&select=id,name,number,set,images`;
   lastUrls['tier1'] = url; renderUrls();
   dbgLog(`[Tier1] GET ${url}`, 'info');
-  const r = await fetch(url, {headers:{'Accept':'application/json'}});
+  const r = await fetch(url, { headers:{ 'Accept':'application/json' } });
   if (!r.ok) { dbgLog(`[Tier1] HTTP ${r.status}`, 'error'); throw new Error(`HTTP ${r.status}`); }
   const d = await r.json();
   if (!(d.data||[]).length) { dbgLog('[Tier1] 0 cards', 'warn'); throw new Error('0 cards'); }
   dbgLog(`[Tier1] ✓ ${d.data.length} cards`, 'ok'); setTierStatus('tier1','ok');
   return d.data.map(c=>({
-    id:c.id, name:c.name, number:c.number,
-    setName:c.set?.name||'', setId:c.set?.id||'',
-    imageUrl:c.images?.large||c.images?.small||'',
-    imageSmall:c.images?.small||c.images?.large||'',
-    source:'tier1',
-  })).sort((a,b)=>(a.setName).localeCompare(b.setName));
+    id: c.id, name: c.name, number: c.number,
+    setName: c.set?.name||'', setId: c.set?.id||'',
+    imageUrl:   c.images?.large  || c.images?.small || '',
+    imageSmall: c.images?.small  || c.images?.large || '',
+    source: 'tier1',
+  })).sort((a,b)=> (a.setName).localeCompare(b.setName));
 }
 
-// ── Card fetch — Tier 2 ───────────────────────────────────────
+// ── Tier 2: tcgdex cards endpoint ────────────────────────────
 async function fetchTier2(name) {
   const q = name.toLowerCase().replace(/-/g,' ');
   const url = `https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(q)}`;
@@ -583,28 +677,108 @@ async function fetchTier2(name) {
   if (!Array.isArray(cards)||!cards.length) { dbgLog('[Tier2] 0 cards', 'warn'); throw new Error('0 cards'); }
   dbgLog(`[Tier2] ✓ ${cards.length} cards`, 'ok'); setTierStatus('tier2','ok');
   return cards.map(c=>({
-    id:`tcgdex-${c.id}`, name:c.name||cap(name), number:c.localId||c.id,
-    setName:c.set?.name||c.set?.id||'', setId:c.set?.id||'',
-    imageUrl:  c.image?`${c.image}/high.webp`:'',
-    imageSmall:c.image?`${c.image}/high.webp`:'',
-    source:'tier2',
-  })).sort((a,b)=>a.setName.localeCompare(b.setName));
+    id: `tcgdex-${c.id}`, name: c.name||cap(name), number: c.localId||c.id,
+    setName: c.set?.name||c.set?.id||'', setId: c.set?.id||'',
+    imageUrl:   c.image ? `${c.image}/high.webp`   : '',
+    imageSmall: c.image ? `${c.image}/high.webp`   : '',
+    source: 'tier2',
+  })).sort((a,b)=> a.setName.localeCompare(b.setName));
 }
 
-// ── Card fetch — Tier 3 (stubs) ───────────────────────────────
-function fetchTier3(name) {
-  lastUrls['tier3'] = '(no network — built-in stub data)'; renderUrls();
-  dbgLog('[Tier3] Using stub cards', 'warn'); setTierStatus('tier3','ok');
+// ── Tier 3: tcgdex Pokémon endpoint (alternative path) ───────
+async function fetchTier3(name) {
+  // Different tcgdex path: /pokemon/<name> returns the Pokémon's card list
+  const q = name.toLowerCase().replace(/ /g,'-');
+  const url = `https://api.tcgdex.net/v2/en/pokemon/${encodeURIComponent(q)}`;
+  lastUrls['tier3'] = url; renderUrls();
+  dbgLog(`[Tier3] GET ${url}`, 'info');
+  const r = await fetch(url);
+  if (!r.ok) { dbgLog(`[Tier3] HTTP ${r.status}`, 'error'); throw new Error(`HTTP ${r.status}`); }
+  const d = await r.json();
+  // Response: { cards: [{ id, localId, set: {id, name}, image }] }
+  const cards = d.cards || d.data || [];
+  if (!cards.length) { dbgLog('[Tier3] 0 cards', 'warn'); throw new Error('0 cards'); }
+  dbgLog(`[Tier3] ✓ ${cards.length} cards`, 'ok'); setTierStatus('tier3','ok');
+  return cards.map(c=>({
+    id: `tcgdex3-${c.id||c.localId}`, name: d.name||cap(name), number: c.localId||c.id,
+    setName: c.set?.name||c.set?.id||'', setId: c.set?.id||'',
+    imageUrl:   c.image ? `${c.image}/high.webp`   : '',
+    imageSmall: c.image ? `${c.image}/high.webp`   : '',
+    source: 'tier3',
+  }));
+}
+
+// ── Tier 4: PokémonDB image probe ────────────────────────────
+// We don't have a proper API here, but pokemondb serves images at
+// predictable URLs. We synthesise a small set from known set patterns
+// and let the image prober verify which ones actually work.
+async function fetchTier4(name) {
+  lastUrls['tier4'] = `https://images.pokemontcg.io/ (CDN probe for ${name})`;
+  renderUrls(); dbgLog(`[Tier4] Attempting CDN probe for ${name}`, 'info');
+  // pokemontcg.io has a CDN at images.pokemontcg.io/<setId>/<number>.png
+  // Without knowing set IDs this is limited, but we try the TCGdex CDN
+  // with common modern set IDs for this Pokémon
+  const RECENT_SETS = ['sv1','sv2','sv3','sv3pt5','sv4','sv4pt5','sv5','sv6','sv6pt5','sv7','sv7pt5','sv8','sv8pt5',
+                       'swsh1','swsh2','swsh3','swsh4','swsh5','swsh6','swsh7','swsh8','swsh9','swsh10','swsh11','swsh12'];
+  const dexId = await getDexId(name);
+  if (!dexId) throw new Error('No dex ID');
+  // Format number as 3-digit padded for SV sets, 2-digit for SWSH
+  const nums = [
+    dexId.toString().padStart(3,'0'),
+    dexId.toString().padStart(2,'0'),
+    dexId.toString(),
+  ];
+  const candidates = [];
+  for (const set of RECENT_SETS.slice(0,8)) {
+    for (const num of nums) {
+      candidates.push({
+        id:`cdn-${set}-${num}`, name:cap(name), number:num,
+        setName:set, setId:set,
+        imageUrl:`https://assets.tcgdex.net/en/${set}/${num}/high.webp`,
+        imageSmall:`https://assets.tcgdex.net/en/${set}/${num}/high.webp`,
+        source:'tier4',
+      });
+    }
+  }
+  // Probe first 6 candidates to see if any actually loads
+  for (const c of candidates.slice(0,6)) {
+    const ok = await probeImage(c.imageSmall);
+    if (ok) {
+      dbgLog(`[Tier4] ✓ Found working CDN card: ${c.setName}/${c.number}`, 'ok');
+      setTierStatus('tier4','ok');
+      // Return this + rest of candidates (unverified is fine, user can scroll)
+      return [c, ...candidates.filter(x=>x.id!==c.id)];
+    }
+  }
+  dbgLog('[Tier4] No working CDN images found', 'warn');
+  throw new Error('No working CDN images');
+}
+
+// ── Tier 5: Built-in stubs (always works) ────────────────────
+function fetchTier5(name) {
+  lastUrls['tier5'] = '(no network — built-in stub data)'; renderUrls();
+  dbgLog('[Tier5] Using stub cards', 'warn'); setTierStatus('tier5','ok');
   const KNOWN = {
-    pikachu:   [{set:'base1',num:'58'},{set:'swsh1',num:'057'},{set:'sv1',num:'081'}],
-    charizard: [{set:'base1',num:'4'},{set:'sv3pt5',num:'006'}],
-    mewtwo:    [{set:'base1',num:'10'},{set:'sv3pt5',num:'150'}],
-    eevee:     [{set:'base1',num:'51'},{set:'sv1',num:'129'}],
-    gengar:    [{set:'base1',num:'5'},{set:'sv3pt5',num:'094'}],
-    lucario:   [{set:'dp2',num:'12'},{set:'swsh10',num:'079'}],
-    greninja:  [{set:'xy6',num:'41'}],
-    rayquaza:  [{set:'ex7',num:'97'},{set:'swsh7',num:'110'}],
-    ogerpon:   [{set:'sv5',num:'016'},{set:'sv8pt5',num:'012'}],
+    pikachu:       [{set:'sv1',     num:'081'},{set:'base1',num:'58'},{set:'swsh1',num:'057'}],
+    charizard:     [{set:'sv3pt5',  num:'006'},{set:'base1',num:'4'},{set:'swsh35',num:'074'}],
+    mewtwo:        [{set:'sv3pt5',  num:'150'},{set:'base1',num:'10'}],
+    eevee:         [{set:'sv1',     num:'129'},{set:'base1',num:'51'}],
+    gengar:        [{set:'sv3pt5',  num:'094'},{set:'base1',num:'5'}],
+    lucario:       [{set:'swsh10',  num:'079'},{set:'dp2',  num:'12'}],
+    greninja:      [{set:'xy6',     num:'41'},{set:'sm115', num:'SV61'}],
+    rayquaza:      [{set:'swsh7',   num:'110'},{set:'ex7',  num:'97'}],
+    ogerpon:       [{set:'sv8pt5',  num:'012'},{set:'sv5',  num:'016'}],
+    dragapult:     [{set:'swsh1',   num:'092'}],
+    garchomp:      [{set:'dp4',     num:'10'}],
+    gardevoir:     [{set:'sv1',     num:'086'}],
+    miraidon:      [{set:'sv1',     num:'081'}],
+    koraidon:      [{set:'sv1',     num:'254'}],
+    terapagos:     [{set:'sv7',     num:'167'}],
+    tyranitar:     [{set:'neo4',    num:'23'},{set:'sv3pt5',num:'248'}],
+    dragonite:     [{set:'fossil',  num:'4'}],
+    snorlax:       [{set:'base1',   num:'11'}],
+    mew:           [{set:'sv3pt5',  num:'151'},{set:'promo', num:'8'}],
+    lugia:         [{set:'neo2',    num:'9'},{set:'swsh12', num:'146'}],
   };
   const known = KNOWN[name.toLowerCase()];
   if (known) return known.map(k=>({
@@ -612,27 +786,36 @@ function fetchTier3(name) {
     setName:k.set, setId:k.set,
     imageUrl:`https://assets.tcgdex.net/en/${k.set}/${k.num}/high.webp`,
     imageSmall:`https://assets.tcgdex.net/en/${k.set}/${k.num}/high.webp`,
-    source:'tier3',
+    source:'tier5',
   }));
-  return [{id:'stub-empty',name:cap(name),number:'?',setName:'',setId:'',imageUrl:'',imageSmall:'',source:'tier3-empty'}];
+  return [{id:'stub-empty',name:cap(name),number:'?',setName:'',setId:'',imageUrl:'',imageSmall:'',source:'stub-empty'}];
 }
 
-// ── Fetch with fallback (respects tierOrder from debug panel) ─
+// ── Main fetch orchestrator ───────────────────────────────────
+// Tries tiers in tierOrder. Each tier gets ONE attempt.
+// After a successful tier, probes images and finds the first loadable card.
 async function fetchCards(name) {
-  tierOrder.forEach(t=>setTierStatus(t,'pending'));
+  tierOrder.forEach(t => setTierStatus(t,'pending'));
+
   for (const tid of tierOrder) {
     try {
       let cards;
       if      (tid==='tier1') cards = await fetchTier1(name);
       else if (tid==='tier2') cards = await fetchTier2(name);
-      else                    cards = fetchTier3(name);
-      return {cards, tier:tid};
+      else if (tid==='tier3') cards = await fetchTier3(name);
+      else if (tid==='tier4') cards = await fetchTier4(name);
+      else                    cards = fetchTier5(name);
+
+      if (!cards.length) throw new Error('empty result');
+      return { cards, tier: tid };
     } catch(e) {
-      setTierStatus(tid,'fail');
+      setTierStatus(tid, 'fail');
       dbgLog(`${tid} failed: ${e.message}`, 'error');
     }
   }
-  return {cards: fetchTier3(name), tier:'tier3'};
+  // Absolute last resort
+  dbgLog('All tiers failed — returning stubs', 'error');
+  return { cards: fetchTier5(name), tier:'tier5' };
 }
 
 // ── Select Pokémon ────────────────────────────────────────────
@@ -649,27 +832,35 @@ async function selectPokemon(name) {
   showPlaceholder();
   document.getElementById('cardCounter').textContent = '— / —';
   showStatus('Fetching cards…','loading',true);
-  document.getElementById('walkSprite').src = walkSpriteUrl(name);
+
+  // Kick off dex lookup + walk sprite resolution in background (non-blocking)
+  resolveWalkSprite(name).then(url => {
+    document.getElementById('walkSprite').src = url;
+    dbgLog(`Walk sprite set to: ${url.slice(-50)}`, 'ok');
+  });
 
   const {cards, tier} = await fetchCards(name);
   allCards = cards;
 
-  if (!allCards.length || allCards[0].source==='tier3-empty') {
+  if (!allCards.length || allCards[0].source==='stub-empty') {
     document.getElementById('cardSelect').innerHTML = '<option value="">No cards found</option>';
     showStatus('⚠ No cards found. Try another Pokémon.','error');
     return;
   }
 
-  // Dropdown: just "Pokémon Name #number" — no set info
+  // Dropdown: just "Pokémon Name #number"
   document.getElementById('cardSelect').innerHTML =
     allCards.map((c,i)=>`<option value="${i}">${cap(name)} #${c.number}</option>`).join('');
   document.getElementById('cardSelect').disabled = false;
 
-  showCardAt(0);
+  // Probe images to find first one that actually loads, then show it
+  showStatus('Checking images…','loading',true);
+  const firstGood = await findFirstLoadableCard(allCards);
+  showCardAt(firstGood);
 
-  const src = tier==='tier1'?'pokemontcg.io':tier==='tier2'?'tcgdex.net':'built-in stubs';
+  const src = tier==='tier1'?'pokemontcg.io':tier==='tier2'?'tcgdex (cards)':tier==='tier3'?'tcgdex (pokemon)':tier==='tier4'?'CDN probe':'built-in stubs';
   showStatus(`${allCards.length} card${allCards.length!==1?'s':''} via ${src} ✓`, 'success');
-  setTimeout(()=>document.getElementById('statusMsg').classList.remove('show'), 3000);
+  setTimeout(()=>document.getElementById('statusMsg').classList.remove('show'), 3500);
 }
 
 // ── Card viewer ───────────────────────────────────────────────
@@ -716,7 +907,7 @@ document.getElementById('pushBtn').addEventListener('click', async ()=>{
   const btn = document.getElementById('pushBtn');
   btn.disabled = true;
   btn.classList.add('sending');
-  startWalk(selectedPokemon);
+  startWalk();
   showStatus('Sending to display…','loading',true);
   try {
     await setDoc(doc(db,'display','current'), {
@@ -738,12 +929,13 @@ document.getElementById('pushBtn').addEventListener('click', async ()=>{
 });
 
 // ── Walk animation ────────────────────────────────────────────
+// Note: sprite src is already set by selectPokemon → resolveWalkSprite()
 let walkTimer=null, walkPct=0;
-function startWalk(name) {
+function startWalk() {
   walkPct = 0;
-  document.getElementById('walkSprite').src = walkSpriteUrl(name);
-  document.getElementById('walkFill').style.width   = '0%';
-  document.getElementById('walkSprite').style.left  = '0%';
+  // sprite src was set when pokemon was selected — just animate position
+  document.getElementById('walkFill').style.width  = '0%';
+  document.getElementById('walkSprite').style.left = '0%';
   clearInterval(walkTimer);
   walkTimer = setInterval(()=>{
     walkPct = Math.min(walkPct + 2.2, 88);
