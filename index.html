@@ -486,48 +486,33 @@
 
 <!-- Firebase SDK -->
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { initializeApp }        from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // ─────────────────────────────────────────────
-//  CONFIG  (saved to localStorage)
+//  FIREBASE CONFIG  (your real credentials)
 // ─────────────────────────────────────────────
-const LS_KEY = 'pokeframe_config';
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyCrn8gIBWdM3OuLuxVzn-oMLDc4iCXbJ9w",
+  authDomain:        "pkmncarddisplay.firebaseapp.com",
+  projectId:         "pkmncarddisplay",
+  storageBucket:     "pkmncarddisplay.firebasestorage.app",
+  messagingSenderId: "49396278277",
+  appId:             "1:49396278277:web:6767d7e85fd33a8c5e286c"
+};
 
-function loadConfig() {
-  try { return JSON.parse(localStorage.getItem(LS_KEY)) || {}; }
-  catch { return {}; }
-}
-function saveConfig(cfg) {
-  localStorage.setItem(LS_KEY, JSON.stringify(cfg));
-}
+// Init Firebase once at page load
+const firebaseApp = initializeApp(FIREBASE_CONFIG);
+const db          = getFirestore(firebaseApp);
 
-let cfg = loadConfig();
-
-const cfgProjectId = document.getElementById('cfgProjectId');
-const cfgApiKey    = document.getElementById('cfgApiKey');
-
-if (cfg.projectId) cfgProjectId.value = cfg.projectId;
-if (cfg.apiKey)    cfgApiKey.value    = cfg.apiKey;
-
-document.getElementById('saveConfigBtn').addEventListener('click', () => {
-  cfg = { projectId: cfgProjectId.value.trim(), apiKey: cfgApiKey.value.trim() };
-  saveConfig(cfg);
-  showStatus('Config saved! ✓', 'success');
-  setTimeout(() => document.getElementById('configPanel').classList.remove('open'), 1000);
-});
-
-document.getElementById('configToggle').addEventListener('click', () => {
-  const panel = document.getElementById('configPanel');
-  const arrow = document.getElementById('configArrow');
-  panel.classList.toggle('open');
-  arrow.textContent = panel.classList.contains('open') ? '▴' : '▾';
-});
+// Hide config panel — credentials are already baked in
+document.getElementById('configToggle').style.display = 'none';
+document.getElementById('configPanel').style.display  = 'none';
 
 // ─────────────────────────────────────────────
 //  POKEMON SEARCH  (PokeAPI for names/sprites)
 // ─────────────────────────────────────────────
-let allPokemon = [];
+let allPokemon      = [];
 let selectedPokemon = null;
 let selectedCard    = null;
 let allCards        = [];
@@ -538,7 +523,21 @@ async function loadPokemonList() {
     const d = await r.json();
     allPokemon = d.results.map(p => p.name);
   } catch(e) {
-    console.error('Failed to load Pokémon list', e);
+    console.warn('PokeAPI list failed, using built-in fallback list');
+    // Fallback: common Pokémon so the search still works offline
+    allPokemon = [
+      'bulbasaur','ivysaur','venusaur','charmander','charmeleon','charizard',
+      'squirtle','wartortle','blastoise','pikachu','raichu','eevee','vaporeon',
+      'jolteon','flareon','espeon','umbreon','leafeon','glaceon','sylveon',
+      'mewtwo','mew','gengar','snorlax','dragonite','tyranitar','lucario',
+      'garchomp','greninja','mimikyu','dragapult','ogerpon','terapagos',
+      'rayquaza','lugia','ho-oh','celebi','kyogre','groudon','deoxys',
+      'dialga','palkia','giratina','arceus','zekrom','reshiram','xerneas',
+      'yveltal','zygarde','solgaleo','lunala','necrozma','zacian','zamazenta',
+      'calyrex','koraidon','miraidon','mewtwo','alakazam','machamp','golem',
+      'arcanine','slowbro','haunter','electabuzz','magmar','jynx','lapras',
+      'ditto','porygon','articuno','zapdos','moltres','togekiss','umbreon',
+    ];
   }
 }
 
@@ -548,7 +547,6 @@ const searchInput = document.getElementById('pokeSearch');
 const autoList    = document.getElementById('autoList');
 
 function spriteUrl(name) {
-  // Use PokeAPI sprite via dex number lookup isn't needed — use name directly
   return `https://img.pokemondb.net/sprites/sword-shield/icon/${name}.png`;
 }
 
@@ -558,14 +556,11 @@ searchInput.addEventListener('input', () => {
   const q = searchInput.value.trim().toLowerCase();
   activeIdx = -1;
   if (!q) { autoList.classList.remove('open'); return; }
-
   const matches = allPokemon
     .filter(n => n.includes(q))
-    .sort((a, b) => a.startsWith(q) ? -1 : b.startsWith(q) ? 1 : 0)
+    .sort((a, b) => (a.startsWith(q) ? -1 : b.startsWith(q) ? 1 : 0))
     .slice(0, 20);
-
   if (!matches.length) { autoList.classList.remove('open'); return; }
-
   autoList.innerHTML = matches.map(name =>
     `<div class="autocomplete-item" data-name="${name}">
        <img class="poke-sprite" src="${spriteUrl(name)}" onerror="this.style.display='none'" alt="">
@@ -583,10 +578,10 @@ autoList.addEventListener('click', e => {
 
 searchInput.addEventListener('keydown', e => {
   const items = autoList.querySelectorAll('.autocomplete-item');
-  if (e.key === 'ArrowDown') { activeIdx = Math.min(activeIdx + 1, items.length - 1); highlightItem(items); e.preventDefault(); }
-  if (e.key === 'ArrowUp')   { activeIdx = Math.max(activeIdx - 1, 0); highlightItem(items); e.preventDefault(); }
-  if (e.key === 'Enter' && activeIdx >= 0) { items[activeIdx].click(); }
-  if (e.key === 'Escape') { autoList.classList.remove('open'); }
+  if (e.key === 'ArrowDown') { activeIdx = Math.min(activeIdx+1, items.length-1); highlightItem(items); e.preventDefault(); }
+  if (e.key === 'ArrowUp')   { activeIdx = Math.max(activeIdx-1, 0);              highlightItem(items); e.preventDefault(); }
+  if (e.key === 'Enter' && activeIdx >= 0) items[activeIdx].click();
+  if (e.key === 'Escape') autoList.classList.remove('open');
 });
 
 function highlightItem(items) {
@@ -599,7 +594,127 @@ document.addEventListener('click', e => {
 });
 
 // ─────────────────────────────────────────────
-//  SELECT POKEMON → fetch TCG cards
+//  CARD FETCHING  — 3-tier fallback system
+//
+//  Tier 1: pokemontcg.io  (best data, may rate-limit without key)
+//  Tier 2: tcgdex.net     (European mirror, no key needed)
+//  Tier 3: Built-in stub  (always works — shows image via TCGdex CDN)
+// ─────────────────────────────────────────────
+
+async function fetchCardsTier1(name) {
+  // pokemontcg.io — exact name match, returns rich data
+  const url = `https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(name)}"&pageSize=250&select=id,name,number,set,images`;
+  const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const d = await r.json();
+  const cards = d.data || [];
+  if (!cards.length) throw new Error('No cards returned');
+  return cards.map(c => ({
+    id:       c.id,
+    name:     c.name,
+    number:   c.number,
+    setName:  c.set?.name  || '?',
+    setId:    c.set?.id    || '',
+    imageUrl: c.images?.large || c.images?.small || '',
+    imageSmall: c.images?.small || '',
+    source:   'tier1',
+  })).sort((a,b) => a.setName.localeCompare(b.setName));
+}
+
+async function fetchCardsTier2(name) {
+  // tcgdex.net — free, CORS-friendly, good coverage
+  // Search endpoint returns array of card stubs; we enrich with set info
+  const searchName = name.toLowerCase().replace(/-/g, ' ');
+  const url = `https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(searchName)}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`TCGdex HTTP ${r.status}`);
+  const cards = await r.json();
+  if (!Array.isArray(cards) || !cards.length) throw new Error('No cards');
+  return cards.map(c => {
+    const imgBase = c.image
+      ? `${c.image}/high.webp`
+      : `https://assets.tcgdex.net/en/${c.set?.id || 'unknown'}/${c.localId || c.id}/high.webp`;
+    return {
+      id:         `tcgdex-${c.id}`,
+      name:       c.name || name,
+      number:     c.localId || c.id,
+      setName:    c.set?.name || c.set?.id || 'Unknown Set',
+      setId:      c.set?.id || '',
+      imageUrl:   imgBase,
+      imageSmall: imgBase,
+      source:     'tier2',
+    };
+  }).sort((a,b) => a.setName.localeCompare(b.setName));
+}
+
+function buildFallbackCards(name) {
+  // Tier 3: We know the TCGdex URL pattern so we can synthesise
+  // a handful of real cards for the most popular Pokémon.
+  // This is a last resort that always gives *something* to push.
+  const capitalized = capitalize(name);
+  // Map of pokémon → [{ set, setName, num }]
+  const KNOWN = {
+    pikachu:    [{set:'base1',setName:'Base Set',num:'58'},{set:'swsh1',setName:'Sword & Shield',num:'057'},{set:'sv1',setName:'Scarlet & Violet',num:'081'}],
+    charizard:  [{set:'base1',setName:'Base Set',num:'4'},{set:'swsh35',setName:'Champion\'s Path',num:'074'},{set:'sv3pt5',setName:'151',num:'006'}],
+    mewtwo:     [{set:'base1',setName:'Base Set',num:'10'},{set:'sv3pt5',setName:'151',num:'150'},{set:'swsh9',setName:'Brilliant Stars',num:'057'}],
+    eevee:      [{set:'base1',setName:'Base Set',num:'51'},{set:'sm35',setName:'McDonald\'s 2018',num:'5'},{set:'sv1',setName:'Scarlet & Violet',num:'129'}],
+    gengar:     [{set:'base1',setName:'Base Set',num:'5'},{set:'sv3pt5',setName:'151',num:'094'}],
+    lucario:    [{set:'dp2',setName:'Mysterious Treasures',num:'12'},{set:'swsh10',setName:'Astral Radiance',num:'079'}],
+    greninja:   [{set:'xy6',setName:'Breakthrough',num:'41'},{set:'sm115',setName:'Hidden Fates',num:'SV61'}],
+    rayquaza:   [{set:'ex7',setName:'Team Magma vs Team Aqua',num:'97'},{set:'swsh7',setName:'Evolving Skies',num:'110'}],
+    ogerpon:    [{set:'sv5',setName:'Temporal Forces',num:'016'},{set:'sv8pt5',setName:'Prismatic Evolutions',num:'012'}],
+  };
+  const known = KNOWN[name.toLowerCase()];
+  if (known) {
+    return known.map(k => ({
+      id:         `stub-${k.set}-${k.num}`,
+      name:       capitalized,
+      number:     k.num,
+      setName:    k.setName,
+      setId:      k.set,
+      imageUrl:   `https://assets.tcgdex.net/en/${k.set}/${k.num}/high.webp`,
+      imageSmall: `https://assets.tcgdex.net/en/${k.set}/${k.num}/high.webp`,
+      source:     'tier3',
+    }));
+  }
+  // Ultimate fallback: one generic entry pointing at TCGdex search page
+  return [{
+    id:         `stub-${name}-001`,
+    name:       capitalized,
+    number:     '?',
+    setName:    'API unavailable — try again',
+    setId:      '',
+    imageUrl:   '',
+    imageSmall: '',
+    source:     'tier3-empty',
+  }];
+}
+
+async function fetchCardsWithFallback(name) {
+  // Try Tier 1
+  try {
+    const cards = await fetchCardsTier1(name);
+    console.log(`[Tier 1] Got ${cards.length} cards for ${name}`);
+    return { cards, tier: 1 };
+  } catch(e) {
+    console.warn('[Tier 1] Failed:', e.message);
+  }
+  // Try Tier 2
+  try {
+    const cards = await fetchCardsTier2(name);
+    console.log(`[Tier 2] Got ${cards.length} cards for ${name}`);
+    return { cards, tier: 2 };
+  } catch(e) {
+    console.warn('[Tier 2] Failed:', e.message);
+  }
+  // Tier 3 always works
+  const cards = buildFallbackCards(name);
+  console.log(`[Tier 3] Using ${cards.length} stub card(s) for ${name}`);
+  return { cards, tier: 3 };
+}
+
+// ─────────────────────────────────────────────
+//  SELECT POKEMON → load cards
 // ─────────────────────────────────────────────
 async function selectPokemon(name) {
   selectedPokemon = name;
@@ -609,33 +724,29 @@ async function selectPokemon(name) {
 
   const cardSelect = document.getElementById('cardSelect');
   cardSelect.disabled = true;
-  cardSelect.innerHTML = '<option>Loading cards...</option>';
+  cardSelect.innerHTML = '<option>Loading cards…</option>';
   resetPreview();
   document.getElementById('pushBtn').disabled = true;
+  showStatus('Fetching cards…', 'loading', true);
 
-  try {
-    // Pokémon TCG API — free, no key needed for basic queries
-    const r = await fetch(
-      `https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(name)}"&pageSize=250&select=id,name,number,set,images`
-    );
-    const d = await r.json();
-    allCards = (d.data || []).sort((a, b) => a.set.releaseDate?.localeCompare(b.set.releaseDate));
+  const { cards, tier } = await fetchCardsWithFallback(name);
+  allCards = cards;
 
-    if (!allCards.length) {
-      cardSelect.innerHTML = '<option>No cards found</option>';
-      return;
-    }
-
-    cardSelect.innerHTML = '<option value="">— select a card —</option>' +
-      allCards.map(c =>
-        `<option value="${c.id}">${c.set.name} · #${c.number} · ${c.name}</option>`
-      ).join('');
-    cardSelect.disabled = false;
-
-  } catch(e) {
-    cardSelect.innerHTML = '<option>Error loading cards</option>';
-    showStatus('Failed to load cards. Check connection.', 'error');
+  if (!allCards.length || (allCards.length === 1 && allCards[0].source === 'tier3-empty')) {
+    cardSelect.innerHTML = '<option value="">No cards found — API may be down</option>';
+    showStatus('⚠ No cards found. Try a different Pokémon or try again later.', 'error');
+    return;
   }
+
+  cardSelect.innerHTML = '<option value="">— select a card —</option>' +
+    allCards.map(c =>
+      `<option value="${c.id}">${c.setName} · #${c.number}</option>`
+    ).join('');
+  cardSelect.disabled = false;
+
+  const tierMsg = tier === 1 ? '' : tier === 2 ? ' (via backup API)' : ' (limited data)';
+  showStatus(`Found ${allCards.length} card${allCards.length !== 1 ? 's' : ''}${tierMsg} ✓`, 'success');
+  setTimeout(() => document.getElementById('statusMsg').classList.remove('show'), 3000);
 }
 
 // ─────────────────────────────────────────────
@@ -650,11 +761,16 @@ document.getElementById('cardSelect').addEventListener('change', e => {
 
   const preview = document.getElementById('cardPreview');
   preview.classList.add('has-card');
+
+  const imgHtml = selectedCard.imageSmall
+    ? `<img class="card-thumb" src="${selectedCard.imageSmall}" alt="${selectedCard.name}" loading="lazy" onerror="this.style.opacity='0.3'">`
+    : `<div class="card-thumb-placeholder">🃏</div>`;
+
   preview.innerHTML = `
-    <img class="card-thumb" src="${selectedCard.images.small}" alt="${selectedCard.name}" loading="lazy">
+    ${imgHtml}
     <div class="card-info">
       <div class="card-name">${selectedCard.name}</div>
-      <div class="card-set">${selectedCard.set.name}</div>
+      <div class="card-set">${selectedCard.setName}</div>
       <div class="card-number">#${selectedCard.number}</div>
     </div>
   `;
@@ -674,49 +790,38 @@ function resetPreview() {
 }
 
 // ─────────────────────────────────────────────
-//  PUSH TO FIREBASE
+//  PUSH TO FIREBASE  (credentials baked in)
 // ─────────────────────────────────────────────
-document.getElementById('pushBtn').addEventListener('click', async (e) => {
+document.getElementById('pushBtn').addEventListener('click', async () => {
   if (!selectedCard) return;
-  if (!cfg.projectId || !cfg.apiKey) {
-    showStatus('⚠ Set your Firebase config first (tap ⚙ below)', 'error');
-    document.getElementById('configPanel').classList.add('open');
-    return;
-  }
 
   const btn = document.getElementById('pushBtn');
   btn.disabled = true;
   btn.classList.add('sending');
   btn.textContent = '⏳ SENDING...';
-  showStatus('Connecting to Firebase...', 'loading', true);
+  showStatus('Pushing to display…', 'loading', true);
 
-  // Ripple
-  const rect = btn.getBoundingClientRect();
+  // Ripple effect
+  const rect   = btn.getBoundingClientRect();
   const ripple = document.createElement('span');
   ripple.className = 'btn-ripple';
-  ripple.style.cssText = `width:${rect.width}px;height:${rect.width}px;left:0;top:${(rect.height-rect.width)/2}px`;
+  ripple.style.cssText = `width:${rect.width}px;height:${rect.width}px;left:0;top:${(rect.height - rect.width) / 2}px`;
   btn.appendChild(ripple);
   setTimeout(() => ripple.remove(), 600);
 
   try {
-    const app = initializeApp({
-      apiKey:    cfg.apiKey,
-      projectId: cfg.projectId,
-    }, `pokeframe-${Date.now()}`);
-    const db = getFirestore(app);
-
     await setDoc(doc(db, 'display', 'current'), {
-      cardId:      selectedCard.id,
-      cardName:    selectedCard.name,
-      setName:     selectedCard.set.name,
-      imageUrl:    selectedCard.images.large || selectedCard.images.small,
-      imageSmall:  selectedCard.images.small,
-      pokemon:     selectedPokemon,
-      pushedAt:    new Date().toISOString(),
-      number:      selectedCard.number,
+      cardId:     selectedCard.id,
+      cardName:   selectedCard.name,
+      setName:    selectedCard.setName,
+      imageUrl:   selectedCard.imageUrl,
+      imageSmall: selectedCard.imageSmall,
+      pokemon:    selectedPokemon,
+      number:     selectedCard.number,
+      pushedAt:   new Date().toISOString(),
     });
 
-    showStatus(`✓ Sent "${selectedCard.name}" to your display!`, 'success');
+    showStatus(`⚡ "${selectedCard.name}" sent to your display!`, 'success');
     btn.textContent = '✓ PUSHED!';
     setTimeout(() => {
       btn.textContent = '▶ PUSH TO DISPLAY';
