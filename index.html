@@ -137,7 +137,7 @@ select option { background: var(--surface2); color: var(--text); }
 
 /* PUSH BUTTON */
 .push-btn {
-  width: 100%; height: 58px; padding: 0;
+  width: 100%; height: 66px; padding: 0;
   background: var(--accent); color: #0a0a0f;
   border: none; border-radius: var(--radius);
   font-family: 'Press Start 2P', monospace; font-size: 9px;
@@ -165,18 +165,19 @@ select option { background: var(--surface2); color: var(--text); }
 .push-btn.sending .walk-layer      { display: flex; }
 
 .walk-track {
-  flex: 1; height: 5px; background: rgba(0,0,0,0.18);
+  flex: 1; height: 6px; background: rgba(0,0,0,0.25);
   border-radius: 3px; position: relative; overflow: visible;
 }
 .walk-fill {
-  height: 100%; border-radius: 3px; background: rgba(0,0,0,0.22); width: 0%;
+  height: 100%; border-radius: 3px; background: rgba(0,0,0,0.35); width: 0%;
 }
 .walk-pokemon {
-  position: absolute; top: 50%; transform: translateY(-62%);
-  left: 0%; image-rendering: pixelated; width: 28px; height: 28px;
-  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3));
+  position: absolute; top: 50%; transform: translateY(-58%);
+  left: 0%; image-rendering: pixelated;
+  width: 40px; height: 40px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)) brightness(1.15);
 }
-.walk-chip { font-size: 22px; flex-shrink: 0; }
+.walk-chip { font-size: 26px; flex-shrink: 0; }
 
 /* STATUS */
 .status {
@@ -405,15 +406,14 @@ const dexCache = {};
 // ── DEBUG ONLY ── remove this section for production
 // ══════════════════════════════════════════════════════════════
 const TIER_META = {
-  tier1: { label:'pokemontcg.io',        cls:'t1', desc:'Best data, needs free API key for reliability' },
-  tier2: { label:'api.tcgdex.net',       cls:'t2', desc:'EU mirror, no key, ~70% reliable'             },
-  tier3: { label:'tcgdex set endpoint',  cls:'t3', desc:'Alternative tcgdex query path'                },
-  tier4: { label:'pokémon DB images',    cls:'t4', desc:'PokémonDB card image CDN probe'               },
-  tier5: { label:'Built-in stubs',       cls:'t5', desc:'Always works, limited to popular Pokémon'     },
+  tier2: { label:'api.tcgdex.net (cards)',   cls:'t2', desc:'EU mirror, no key, ~70% reliable'    },
+  tier3: { label:'api.tcgdex.net (pokemon)', cls:'t3', desc:'Alternative tcgdex endpoint path'    },
+  tier4: { label:'TCGdex CDN probe',         cls:'t4', desc:'Constructs CDN URLs from dex number' },
+  tier5: { label:'Built-in stubs',           cls:'t5', desc:'Always works, popular Pokémon only'  },
 };
-const TIER_BADGE_COLORS = { t1:'rgba(64,192,87,0.18)',t2:'rgba(59,91,219,0.18)',t3:'rgba(255,203,5,0.12)',t4:'rgba(250,82,82,0.12)',t5:'rgba(180,180,180,0.1)' };
-const TIER_TEXT_COLORS  = { t1:'#40c057',t2:'#7b97ff',t3:'#ffcb05',t4:'#ff8787',t5:'#aaa' };
-let tierOrder    = ['tier1','tier2','tier3','tier4','tier5'];
+const TIER_BADGE_COLORS = { t2:'rgba(59,91,219,0.18)',t3:'rgba(255,203,5,0.12)',t4:'rgba(250,82,82,0.12)',t5:'rgba(180,180,180,0.1)' };
+const TIER_TEXT_COLORS  = { t2:'#7b97ff',t3:'#ffcb05',t4:'#ff8787',t5:'#aaa' };
+let tierOrder    = ['tier2','tier3','tier4','tier5'];
 let tierStatuses = Object.fromEntries(tierOrder.map(t=>[t,'pending']));
 let lastUrls     = {};
 let dragSrc      = null;
@@ -533,12 +533,12 @@ function spriteUrl(n) { return `https://img.pokemondb.net/sprites/sword-shield/i
 // ── Pokémon list ──────────────────────────────────────────────
 async function loadPokemonList() {
   try {
-    dbgLog('Loading Pokémon list from PokeAPI…');
-    // Fetch all 1025+ Pokémon names
-    const r = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1302');
+    dbgLog('Loading Pokémon species list from PokeAPI…');
+    // Use pokemon-species endpoint — returns only base species, no forms at all
+    const r = await fetch('https://pokeapi.co/api/v2/pokemon-species?limit=1025');
     const d = await r.json();
     allPokemon = d.results.map(p => p.name);
-    dbgLog(`Pokémon list OK — ${allPokemon.length} entries`, 'ok');
+    dbgLog(`Pokémon list OK — ${allPokemon.length} species`, 'ok');
   } catch(e) {
     dbgLog('PokeAPI list failed, using built-in: '+e.message, 'warn');
     // Expanded fallback covering all gens roughly
@@ -644,25 +644,6 @@ async function findFirstLoadableCard(cards) {
   // Give up probing, just show index 0 (user can arrow through)
   dbgLog('Image probe exhausted — showing index 0 anyway', 'warn');
   return 0;
-}
-
-// ── Tier 1: pokemontcg.io ─────────────────────────────────────
-async function fetchTier1(name) {
-  const url = `https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(name)}"&pageSize=250&select=id,name,number,set,images`;
-  lastUrls['tier1'] = url; renderUrls();
-  dbgLog(`[Tier1] GET ${url}`, 'info');
-  const r = await fetch(url, { headers:{ 'Accept':'application/json' } });
-  if (!r.ok) { dbgLog(`[Tier1] HTTP ${r.status}`, 'error'); throw new Error(`HTTP ${r.status}`); }
-  const d = await r.json();
-  if (!(d.data||[]).length) { dbgLog('[Tier1] 0 cards', 'warn'); throw new Error('0 cards'); }
-  dbgLog(`[Tier1] ✓ ${d.data.length} cards`, 'ok'); setTierStatus('tier1','ok');
-  return d.data.map(c=>({
-    id: c.id, name: c.name, number: c.number,
-    setName: c.set?.name||'', setId: c.set?.id||'',
-    imageUrl:   c.images?.large  || c.images?.small || '',
-    imageSmall: c.images?.small  || c.images?.large || '',
-    source: 'tier1',
-  })).sort((a,b)=> (a.setName).localeCompare(b.setName));
 }
 
 // ── Tier 2: tcgdex cards endpoint ────────────────────────────
@@ -800,8 +781,7 @@ async function fetchCards(name) {
   for (const tid of tierOrder) {
     try {
       let cards;
-      if      (tid==='tier1') cards = await fetchTier1(name);
-      else if (tid==='tier2') cards = await fetchTier2(name);
+      if      (tid==='tier2') cards = await fetchTier2(name);
       else if (tid==='tier3') cards = await fetchTier3(name);
       else if (tid==='tier4') cards = await fetchTier4(name);
       else                    cards = fetchTier5(name);
@@ -858,7 +838,7 @@ async function selectPokemon(name) {
   const firstGood = await findFirstLoadableCard(allCards);
   showCardAt(firstGood);
 
-  const src = tier==='tier1'?'pokemontcg.io':tier==='tier2'?'tcgdex (cards)':tier==='tier3'?'tcgdex (pokemon)':tier==='tier4'?'CDN probe':'built-in stubs';
+  const src = tier==='tier2'?'tcgdex (cards)':tier==='tier3'?'tcgdex (pokemon)':tier==='tier4'?'CDN probe':'built-in stubs';
   showStatus(`${allCards.length} card${allCards.length!==1?'s':''} via ${src} ✓`, 'success');
   setTimeout(()=>document.getElementById('statusMsg').classList.remove('show'), 3500);
 }
@@ -938,11 +918,11 @@ function startWalk() {
   document.getElementById('walkSprite').style.left = '0%';
   clearInterval(walkTimer);
   walkTimer = setInterval(()=>{
-    walkPct = Math.min(walkPct + 2.2, 88);
+    walkPct = Math.min(walkPct + 0.7, 88);
     document.getElementById('walkFill').style.width  = walkPct+'%';
     document.getElementById('walkSprite').style.left = walkPct+'%';
     if (walkPct>=88) clearInterval(walkTimer);
-  }, 40);
+  }, 90);
 }
 function stopWalk(success) {
   clearInterval(walkTimer);
