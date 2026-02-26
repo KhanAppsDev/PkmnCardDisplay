@@ -91,22 +91,51 @@ header { text-align: center; margin-bottom: 24px; animation: fadeDown 0.5s ease 
 /* CARD VIEWER */
 .card-viewer {
   display: flex; align-items: center; justify-content: center;
-  gap: 10px; margin-top: 6px; min-height: 240px;
+  gap: 8px; margin-top: 6px; min-height: 260px;
+  /* clip peeking cards that overflow the panel edge */
+  overflow: hidden;
+  /* but allow them to slightly overflow — use negative margin trick */
+  margin-left: -18px; margin-right: -18px;
+  padding-left: 18px; padding-right: 18px;
 }
+
+/* Each nav column: button above, peek card below */
+.nav-col {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 8px; flex-shrink: 0;
+}
+
 .nav-btn {
   background: var(--surface2); border: 1.5px solid var(--border); border-radius: 50%;
-  width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
-  cursor: pointer; color: var(--muted); font-size: 16px;
+  width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--muted); font-size: 14px;
   transition: all 0.15s; flex-shrink: 0; user-select: none;
   -webkit-tap-highlight-color: transparent;
+  z-index: 2;
 }
 .nav-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: rgba(255,203,5,0.06); }
 .nav-btn:disabled { opacity: 0.18; cursor: not-allowed; }
 
-.card-display { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+/* Peek card — the adjacent card shown at the side, partially cropped */
+.peek-card {
+  width: 62px; height: 86px; border-radius: 6px; overflow: hidden;
+  background: var(--surface2); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0.45; transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+.peek-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.peek-card.has-img { opacity: 0.52; }
+.peek-card:empty::after { content: '🃏'; font-size: 22px; opacity: 0.3; }
+
+/* Left peek is cropped on the left; right peek on the right */
+.nav-col.left  .peek-card { transform: translateX(10px); clip-path: inset(0 0 0 14px round 6px); }
+.nav-col.right .peek-card { transform: translateX(-10px); clip-path: inset(0 14px 0 0 round 6px); }
+
+.card-display { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; }
 
 .card-img-wrap {
-  width: 176px; height: 246px; border-radius: 10px; overflow: hidden;
+  width: 168px; height: 234px; border-radius: 10px; overflow: hidden;
   background: var(--surface2); border: 1.5px solid var(--border);
   display: flex; align-items: center; justify-content: center;
   transition: border-color 0.2s, box-shadow 0.3s;
@@ -165,19 +194,21 @@ select option { background: var(--surface2); color: var(--text); }
 .push-btn.sending .walk-layer      { display: flex; }
 
 .walk-track {
-  flex: 1; height: 6px; background: rgba(0,0,0,0.25);
-  border-radius: 3px; position: relative; overflow: visible;
+  flex: 1; height: 3px; background: rgba(0,0,0,0.12);
+  border-radius: 2px; position: relative; overflow: visible;
 }
 .walk-fill {
-  height: 100%; border-radius: 3px; background: rgba(0,0,0,0.35); width: 0%;
+  /* intentionally invisible — we don't want any darkening on the button */
+  height: 0; width: 0%;
 }
 .walk-pokemon {
   position: absolute; top: 50%; transform: translateY(-58%);
   left: 0%; image-rendering: pixelated;
-  width: 40px; height: 40px;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)) brightness(1.15);
+  width: 44px; height: 44px;
+  /* no background dimming — just a clean drop shadow so it pops on yellow */
+  filter: drop-shadow(1px 3px 2px rgba(0,0,0,0.45));
 }
-.walk-chip { font-size: 26px; flex-shrink: 0; }
+.walk-chip { font-size: 28px; flex-shrink: 0; }
 
 /* STATUS */
 .status {
@@ -311,14 +342,25 @@ footer a { color: var(--muted); }
   <div class="step">
     <div class="step-label"><span class="step-num">2</span> Browse cards</div>
     <div class="card-viewer">
-      <button class="nav-btn" id="prevBtn" disabled>&#8592;</button>
+      <!-- Left column: prev button + left peek card -->
+      <div class="nav-col left">
+        <button class="nav-btn" id="prevBtn" disabled>&#8592;</button>
+        <div class="peek-card" id="peekLeft"></div>
+      </div>
+
+      <!-- Centre: the active card -->
       <div class="card-display">
         <div class="card-img-wrap" id="cardImgWrap">
           <span class="card-placeholder-icon">🃏</span>
         </div>
         <div class="card-counter" id="cardCounter">— / —</div>
       </div>
-      <button class="nav-btn" id="nextBtn" disabled>&#8594;</button>
+
+      <!-- Right column: next button + right peek card -->
+      <div class="nav-col right">
+        <button class="nav-btn" id="nextBtn" disabled>&#8594;</button>
+        <div class="peek-card" id="peekRight"></div>
+      </div>
     </div>
     <div class="card-select-row">
       <select id="cardSelect" disabled>
@@ -844,26 +886,54 @@ async function selectPokemon(name) {
 }
 
 // ── Card viewer ───────────────────────────────────────────────
+function makeCardImg(url, alt) {
+  const img = document.createElement('img');
+  img.alt = alt || '';
+  img.src = url;
+  return img;
+}
+
+function updatePeek(el, card) {
+  if (!el) return;
+  el.innerHTML = '';
+  if (card) {
+    const url = card.imageSmall || card.imageUrl;
+    if (url) {
+      const img = makeCardImg(url, card.name);
+      img.onload  = () => el.classList.add('has-img');
+      img.onerror = () => { el.innerHTML = ''; el.classList.remove('has-img'); };
+      el.classList.remove('has-img');
+      el.appendChild(img);
+    }
+  }
+}
+
 function showCardAt(idx) {
   cardIdx = Math.max(0, Math.min(idx, allCards.length-1));
   const card = allCards[cardIdx];
+
+  // ── Main card ──
   const wrap = document.getElementById('cardImgWrap');
   wrap.innerHTML = '';
   wrap.classList.remove('loaded');
-  if (card.imageSmall||card.imageUrl) {
-    const img = document.createElement('img');
-    img.src = card.imageSmall || card.imageUrl;
-    img.alt = card.name;
-    img.onerror = ()=>{ wrap.innerHTML='<span class="card-placeholder-icon">🃏</span>'; };
-    img.onload  = ()=> wrap.classList.add('loaded');
+  if (card.imageSmall || card.imageUrl) {
+    const img = makeCardImg(card.imageSmall || card.imageUrl, card.name);
+    img.onerror = () => { wrap.innerHTML='<span class="card-placeholder-icon">🃏</span>'; };
+    img.onload  = () => wrap.classList.add('loaded');
     wrap.appendChild(img);
   } else {
     wrap.innerHTML = '<span class="card-placeholder-icon">🃏</span>';
   }
+
+  // ── Peek cards ──
+  updatePeek(document.getElementById('peekLeft'),  cardIdx > 0 ? allCards[cardIdx-1] : null);
+  updatePeek(document.getElementById('peekRight'), cardIdx < allCards.length-1 ? allCards[cardIdx+1] : null);
+
+  // ── Nav state ──
   document.getElementById('cardCounter').textContent = `${cardIdx+1} / ${allCards.length}`;
   document.getElementById('cardSelect').selectedIndex = cardIdx;
-  document.getElementById('prevBtn').disabled = cardIdx===0;
-  document.getElementById('nextBtn').disabled = cardIdx===allCards.length-1;
+  document.getElementById('prevBtn').disabled = cardIdx === 0;
+  document.getElementById('nextBtn').disabled = cardIdx === allCards.length-1;
   document.getElementById('pushBtn').disabled = false;
 }
 
@@ -918,11 +988,11 @@ function startWalk() {
   document.getElementById('walkSprite').style.left = '0%';
   clearInterval(walkTimer);
   walkTimer = setInterval(()=>{
-    walkPct = Math.min(walkPct + 0.7, 88);
-    document.getElementById('walkFill').style.width  = walkPct+'%';
+    walkPct = Math.min(walkPct + 0.35, 88);
+    // no fill bar update — it's invisible; just move the sprite
     document.getElementById('walkSprite').style.left = walkPct+'%';
     if (walkPct>=88) clearInterval(walkTimer);
-  }, 90);
+  }, 120);
 }
 function stopWalk(success) {
   clearInterval(walkTimer);
