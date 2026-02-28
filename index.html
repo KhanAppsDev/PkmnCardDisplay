@@ -702,8 +702,8 @@ async function fetchTier2(name) {
   return cards.map(c=>({
     id: `tcgdex-${c.id}`, name: c.name||cap(name), number: c.localId||c.id,
     setName: c.set?.name||c.set?.id||'', setId: c.set?.id||'',
-    imageUrl:   c.image ? `${c.image}/high.webp`   : '',
-    imageSmall: c.image ? `${c.image}/high.webp`   : '',
+    imageUrl:   c.image ? `${c.image}/high.png`   : '',
+    imageSmall: c.image ? `${c.image}/high.png`   : '',
     source: 'tier2',
   })).sort((a,b)=> a.setName.localeCompare(b.setName));
 }
@@ -725,8 +725,8 @@ async function fetchTier3(name) {
   return cards.map(c=>({
     id: `tcgdex3-${c.id||c.localId}`, name: d.name||cap(name), number: c.localId||c.id,
     setName: c.set?.name||c.set?.id||'', setId: c.set?.id||'',
-    imageUrl:   c.image ? `${c.image}/high.webp`   : '',
-    imageSmall: c.image ? `${c.image}/high.webp`   : '',
+    imageUrl:   c.image ? `${c.image}/high.png`   : '',
+    imageSmall: c.image ? `${c.image}/high.png`   : '',
     source: 'tier3',
   }));
 }
@@ -757,8 +757,8 @@ async function fetchTier4(name) {
       candidates.push({
         id:`cdn-${set}-${num}`, name:cap(name), number:num,
         setName:set, setId:set,
-        imageUrl:`https://assets.tcgdex.net/en/${set}/${num}/high.webp`,
-        imageSmall:`https://assets.tcgdex.net/en/${set}/${num}/high.webp`,
+        imageUrl:`https://assets.tcgdex.net/en/${set}/${num}/high.png`,
+        imageSmall:`https://assets.tcgdex.net/en/${set}/${num}/high.png`,
         source:'tier4',
       });
     }
@@ -807,8 +807,8 @@ function fetchTier5(name) {
   if (known) return known.map(k=>({
     id:`stub-${k.set}-${k.num}`, name:cap(name), number:k.num,
     setName:k.set, setId:k.set,
-    imageUrl:`https://assets.tcgdex.net/en/${k.set}/${k.num}/high.webp`,
-    imageSmall:`https://assets.tcgdex.net/en/${k.set}/${k.num}/high.webp`,
+    imageUrl:`https://assets.tcgdex.net/en/${k.set}/${k.num}/high.png`,
+    imageSmall:`https://assets.tcgdex.net/en/${k.set}/${k.num}/high.png`,
     source:'tier5',
   }));
   return [{id:'stub-empty',name:cap(name),number:'?',setName:'',setId:'',imageUrl:'',imageSmall:'',source:'stub-empty'}];
